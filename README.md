@@ -9,7 +9,7 @@
 [![Alpine.js](https://img.shields.io/badge/Alpine.js-3.x-8BC0D0?style=for-the-badge&logo=alpinedotjs&logoColor=white)](https://alpinejs.dev)
 [![Vite](https://img.shields.io/badge/Vite-6.x-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev)
 [![MySQL](https://img.shields.io/badge/MySQL-8.x-4479A1?style=for-the-badge&logo=mysql&logoColor=white)](https://www.mysql.com)
-[![Tests](https://img.shields.io/badge/Tests-49%20Passed%20(210%20assertions)-success?style=for-the-badge&logo=checkmarx&logoColor=white)](https://github.com/thonpheara/InternshipMS)
+[![Tests](https://img.shields.io/badge/Tests-56%20Passed%20(250%20assertions)-success?style=for-the-badge&logo=checkmarx&logoColor=white)](https://github.com/thonpheara/InternshipMS)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
 **Internship Management System (IMS)** is an enterprise-grade full-stack platform and REST API backend built with **Laravel 12**, **Laravel Sanctum**, **Laravel Reverb WebSockets**, **Tailwind CSS**, **Alpine.js**, **Chart.js**, and **Vite**. It provides a unified ecosystem bridging university students, host employers, and university administrators to streamline internship discovery, candidate applications, corporate verification, job vacancy moderation, real-time bidirectional messaging, instant in-app alerts, placement reporting, and institutional analytics.
@@ -52,11 +52,16 @@ In addition to its responsive web portal, the system exposes a secure **Android 
 ## ✨ Key Features & Role Portals
 
 ### 🎓 Student Portal
-- **Internship Opportunity Discovery:** Browse approved corporate postings with dynamic search filters by job title, category/department, stipend disclosure, and workplace modality (*On-site*, *Hybrid*, *Remote*).
-- **Recommended Internships:** Dynamic dashboard recommendations showcasing open postings the student has not yet applied for with impending deadlines.
-- **Application Submission:** Apply with a customized cover letter and attached PDF resume.
-- **Dedicated Resume Management:** Upload and manage personal PDF resumes with direct browser-native previewing, downloading, and isolated file deletion (`storage/app/public/resumes/{student_id}/`).
-- **Application Pipeline Tracking:** Real-time visibility into application progress across all stages (*Applied*, *Under Review*, *Interviewed*, *Accepted*, *Rejected*).
+- **Internship Opportunity Discovery:** Browse approved corporate postings with dynamic search filters by job title, category, company, location, and modality (*On-site*, *Hybrid*, *Remote*).
+- **⚡ Advanced Multi-Filter & Sort Engine:** Filter listings by **Stipend** (*Any*, *Has Stipend*, *Unpaid*, or *≥ $X/month*), **Deadline cutoff** (*Open Now* vs. *Closing Soon ≤ 7 days* with 🔥 amber indicators), and sort by **Newest**, **Impending Deadline**, or **Stipend (High to Low)**.
+- **❤️ Saved Jobs & Bookmarks System:** Bookmark vacancies with zero page reload using Alpine.js AJAX and manage saved opportunities in a dedicated `/student/bookmarks` interface with real-time sidebar count badges.
+- **✨ Smart Recommendation Engine:** Dynamic matching algorithm (`InternshipPost::recommendedFor($student)`) matching student degree major and technical skills against job requirements with relevance scoring and visual **Smart Match** chips (🎓 Major match, 🟢 Skill badges).
+- **Application Submission & Tailored Resumes:** Apply with statement of intent and choose between using default profile resume or attaching a **custom tailored CV** specific to that job vacancy.
+- **👁️ Application Submission & Cover Letter Preview Modal:** In-app inspection modal to review submitted cover letters (with word counter and one-click copy), view embedded PDF resumes in an interactive reader, and read recruiter feedback without page redirects.
+- **Application Progress Timeline:** Interactive 5-step visual progress bar component (`<x-application-timeline />`) tracking each application from *Applied* ➔ *Under Review* ➔ *Shortlisted* ➔ *Interviewed* ➔ *Accepted*, with dedicated banners for *Withdrawn* and *Rejected* states.
+- **↺ Self-Service Application Withdrawal:** Students can withdraw active pending applications with an animated Alpine.js confirmation modal, automatically notifying host employers and preventing accidental duplicate entries while allowing future re-applications.
+- **🏢 Company Public Profile Pages (`/student/companies/{id}`):** Dedicated public host organization profiles featuring company branding, sector, headquarters, accreditation badges, and an active vacancy catalog.
+- **Dedicated Resume Management:** Upload and manage personal PDF resumes with direct browser-native previewing, downloading, and isolated file deletion (`storage/app/resumes/{student_id}/`).
 - **⚡ Real-Time Direct Messaging (Laravel Reverb & Echo):** Instant peer-to-peer messaging with recruiters powered by WebSockets. Instant asynchronous sending (zero page reload), auto-scrolling, live message bubble streaming, and real-time conversation list updates.
 - **Profile Picture & Avatar Customization:** Upload, preview, and update student profile picture with instant live preview and dynamic initials fallback.
 - **Academic Profile Configuration:** Manage university student ID, major, department, cumulative GPA, key technical skills, and biographical details.
@@ -154,16 +159,20 @@ All API endpoints return a predictable, strongly-typed JSON envelope:
 | **`PUT`** | `/api/auth/password` | `auth:sanctum` | Change user password with current password verification |
 | **`POST`** | `/api/auth/avatar` | `auth:sanctum` | Upload and set profile avatar image |
 | **`DELETE`**| `/api/auth/avatar` | `auth:sanctum` | Remove user profile avatar image |
-| **`GET`** | `/api/student/dashboard` | `role:student` | Student KPI statistics, active applications, & recommendations |
+| **`GET`** | `/api/student/dashboard` | `role:student` | Student KPI stats, recent applications, & smart recommendations |
 | **`GET`** | `/api/student/profile` | `role:student` | Get student academic details (major, GPA, skills, resume) |
 | **`POST`** | `/api/student/profile` | `role:student` | Update student profile information |
 | **`POST`** | `/api/student/resume` | `role:student` | Upload student PDF resume file |
 | **`DELETE`**| `/api/student/resume` | `role:student` | Delete current student PDF resume |
-| **`GET`** | `/api/student/posts` | `role:student` | Search approved jobs (query, category, modality, stipend) |
-| **`GET`** | `/api/student/posts/{id}`| `role:student` | Inspect individual internship post details & company profile |
-| **`POST`** | `/api/student/posts/{id}/apply` | `role:student` | Apply to internship vacancy with cover letter & resume |
+| **`GET`** | `/api/student/posts` | `role:student` | Search & filter jobs (`search`, `category`, `type`, `location`, `stipend`, `deadline`, `sort`) |
+| **`GET`** | `/api/student/posts/{id}`| `role:student` | Inspect individual internship post details, company profile & bookmark flag |
+| **`POST`** | `/api/student/posts/{id}/apply` | `role:student` | Apply to vacancy with cover letter & tailored resume (supports re-applying) |
+| **`POST`** | `/api/student/posts/{id}/bookmark` | `role:student` | Toggle saved job bookmark on an internship post (returns boolean) |
+| **`GET`** | `/api/student/bookmarks` | `role:student` | List all bookmarked/saved jobs for the authenticated student |
 | **`GET`** | `/api/student/applications` | `role:student` | List all submitted student applications and review stages |
-| **`GET`** | `/api/student/applications/{id}` | `role:student` | Detailed application status tracker |
+| **`GET`** | `/api/student/applications/{id}` | `role:student` | Detailed application status tracker (review feedback, timeline) |
+| **`POST`** | `/api/student/applications/{id}/withdraw` | `role:student` | Self-service application withdrawal (pending review only) |
+| **`GET`** | `/api/student/companies/{id}` | `role:student` | View host company public profile, verification badge & active vacancies |
 | **`GET`** | `/api/company/dashboard` | `role:company` | Employer dashboard stats, vacancy counts, and pipeline summary |
 | **`GET`** | `/api/company/profile` | `role:company` | Get host employer corporate profile details |
 | **`POST`** | `/api/company/profile` | `role:company` | Update company description, website, contact, and logo |
@@ -202,9 +211,37 @@ curl -X POST http://127.0.0.1:8000/api/auth/login \
   }'
 ```
 
-#### 2. Authenticated Request (Fetching Student Dashboard)
+#### 2. Authenticated Request (Fetching Student Dashboard & Smart Recommendations)
 ```bash
 curl -X GET http://127.0.0.1:8000/api/student/dashboard \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer 1|AbCdEf123456..."
+```
+
+#### 3. Advanced Job Search & Filter (Stipend, Deadline, Sort)
+```bash
+curl -X GET "http://127.0.0.1:8000/api/student/posts?stipend=has&deadline=soon&sort=stipend" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer 1|AbCdEf123456..."
+```
+
+#### 4. Toggle Saved Job Bookmark
+```bash
+curl -X POST http://127.0.0.1:8000/api/student/posts/5/bookmark \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer 1|AbCdEf123456..."
+```
+
+#### 5. Withdraw Active Pending Application
+```bash
+curl -X POST http://127.0.0.1:8000/api/student/applications/12/withdraw \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer 1|AbCdEf123456..."
+```
+
+#### 6. Inspect Company Public Profile & Openings
+```bash
+curl -X GET http://127.0.0.1:8000/api/student/companies/3 \
   -H "Accept: application/json" \
   -H "Authorization: Bearer 1|AbCdEf123456..."
 ```
@@ -548,6 +585,7 @@ php artisan test
 ```
 
 ### Test Suite Summary:
+- **`StudentPhase1FeaturesTest` (7 tests):** Post bookmarking toggle and listing, advanced filter (stipend has/none/min, deadline soon) and sorting, self-service application withdrawal, rejection of withdrawal on reviewed/accepted applications, re-applying after withdrawal, company public profile with active vacancies, and skills/major smart recommendation ranking.
 - **`AndroidApiTest` (8 tests):** Sanctum token authentication, invalid credential rejection, student registration via API, Bearer token authorization guards, student dashboard & posts browsing, job application submission, role authorization enforcement (`role:company` vs `role:student`), conversation chat dispatch, and in-app notifications.
 - **`UserProfileAvatarTest` (6 tests):** User model avatar and initials accessors, company profile logo accessors, admin profile view & avatar upload, password changes, route security guards, and topbar user info rendering.
 - **`RealtimeBroadcastingTest` (4 tests):** Real-time WebSockets event broadcasting (`MessageSent`), instant AJAX transmission for Student & Company messaging, `AppNotification` broadcast verification (`ShouldBroadcastNow`), and channel participant authorization security.
@@ -558,7 +596,7 @@ php artisan test
 - **`UserManagementTest` (8 tests):** Admin user index, Chart.js analytics dashboard metrics, student creation, company creation, user updates, soft-deletes, and RBAC guard tests.
 - **`ExampleTest` (1 test):** Application baseline and unit integrity.
 
-**Result:** `49 passed (210 assertions)`
+**Result:** `56 passed (250 assertions)` (100% green suite)
 
 ---
 

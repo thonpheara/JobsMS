@@ -94,7 +94,8 @@
                              { value: 'shortlisted', label: 'Shortlisted', dot: 'bg-indigo-500 ring-2 ring-indigo-100' },
                              { value: 'interviewed', label: 'Interviewed', dot: 'bg-amber-500 ring-2 ring-amber-100' },
                              { value: 'accepted', label: 'Accepted (Hired)', dot: 'bg-emerald-500 ring-2 ring-emerald-100' },
-                             { value: 'rejected', label: 'Rejected', dot: 'bg-rose-500 ring-2 ring-rose-100' }
+                             { value: 'rejected', label: 'Rejected', dot: 'bg-rose-500 ring-2 ring-rose-100' },
+                             { value: 'withdrawn', label: 'Withdrawn', dot: 'bg-slate-400 ring-2 ring-slate-100' }
                          ],
                          get currentOption() {
                              return this.options.find(o => o.value === this.statusVal) || this.options[0];
@@ -242,23 +243,30 @@
                                                 title="Chat with Candidate">
                                                 <i class="fa-solid fa-comment-dots text-xs"></i>
                                             </a>
-                                            <button type="button"
-                                                    @click="openStatusModal({
-                                                        id: {{ $app->id }},
-                                                        candidateName: @js($app->studentProfile->user->name),
-                                                        roleTitle: @js($app->internshipPost->title),
-                                                        status: @js($app->status),
-                                                        companyNotes: @js($app->company_notes ?? ''),
-                                                        updateUrl: @js(route('company.applicants.update', $app)),
-                                                        hasResume: @js($resumeExists),
-                                                        resumeFileName: @js($resumeExists ? basename($appResumePath) : ''),
-                                                        resumePreviewUrl: @js($resumeExists && in_array(strtolower(pathinfo(basename($appResumePath), PATHINFO_EXTENSION)), ['pdf', 'png', 'jpg', 'jpeg']) ? route('company.applicants.resume', $app) : ''),
-                                                        resumeDownloadUrl: @js($resumeExists ? route('company.applicants.resume', [$app, 'download' => 1]) : '')
-                                                    })"
-                                                    class="w-8 h-8 flex items-center justify-center text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors border border-slate-200/60 cursor-pointer"
-                                                    title="Update Candidacy Status">
-                                                <i class="fa-solid fa-sliders text-xs"></i>
-                                            </button>
+                                            @if ($app->status === 'withdrawn')
+                                                <span class="w-8 h-8 flex items-center justify-center text-slate-300 rounded-lg border border-slate-200"
+                                                      title="Candidate has withdrawn this application">
+                                                    <i class="fa-solid fa-ban text-xs text-slate-400"></i>
+                                                </span>
+                                            @else
+                                                <button type="button"
+                                                        @click="openStatusModal({
+                                                            id: {{ $app->id }},
+                                                            candidateName: @js($app->studentProfile->user->name),
+                                                            roleTitle: @js($app->internshipPost->title),
+                                                            status: @js($app->status),
+                                                            companyNotes: @js($app->company_notes ?? ''),
+                                                            updateUrl: @js(route('company.applicants.update', $app)),
+                                                            hasResume: @js($resumeExists),
+                                                            resumeFileName: @js($resumeExists ? basename($appResumePath) : ''),
+                                                            resumePreviewUrl: @js($resumeExists && in_array(strtolower(pathinfo(basename($appResumePath), PATHINFO_EXTENSION)), ['pdf', 'png', 'jpg', 'jpeg']) ? route('company.applicants.resume', $app) : ''),
+                                                            resumeDownloadUrl: @js($resumeExists ? route('company.applicants.resume', [$app, 'download' => 1]) : '')
+                                                        })"
+                                                        class="w-8 h-8 flex items-center justify-center text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors border border-slate-200/60 cursor-pointer"
+                                                        title="Update Candidacy Status">
+                                                    <i class="fa-solid fa-sliders text-xs"></i>
+                                                </button>
+                                            @endif
                                         </div>
                                     </td>
                                 </tr>

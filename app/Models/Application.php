@@ -60,6 +60,16 @@ class Application extends Model
         return $this->status === 'rejected';
     }
 
+    public function isWithdrawn(): bool
+    {
+        return $this->status === 'withdrawn';
+    }
+
+    public function canBeWithdrawn(): bool
+    {
+        return in_array(strtolower((string) $this->status), ['pending', 'applied']);
+    }
+
     public function getCustomResumePathAttribute($value): ?string
     {
         return ($value === '0' || $value === '' || $value === null) ? null : $value;

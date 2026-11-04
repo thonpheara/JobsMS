@@ -48,8 +48,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/posts', [StudentApiController::class, 'browsePosts'])->name('api.student.posts');
         Route::get('/posts/{id}', [StudentApiController::class, 'showPost'])->name('api.student.posts.show');
         Route::post('/posts/{id}/apply', [StudentApiController::class, 'applyPost'])->name('api.student.posts.apply');
+        Route::post('/posts/{id}/bookmark', [StudentApiController::class, 'toggleBookmark'])->name('api.student.posts.bookmark');
+        Route::get('/bookmarks', [StudentApiController::class, 'bookmarks'])->name('api.student.bookmarks');
+
+        // Application tracking & withdrawal
         Route::get('/applications', [StudentApiController::class, 'myApplications'])->name('api.student.applications');
         Route::get('/applications/{id}', [StudentApiController::class, 'showApplication'])->name('api.student.applications.show');
+        Route::post('/applications/{id}/withdraw', [StudentApiController::class, 'withdrawApplication'])->name('api.student.applications.withdraw');
+
+        // Company public profile
+        Route::get('/companies/{id}', [StudentApiController::class, 'showCompany'])->name('api.student.companies.show');
     });
 
     // 3. Company Portal API

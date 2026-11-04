@@ -24,6 +24,11 @@
             'dot' => 'bg-rose-500',
             'label' => ucfirst(str_replace('_', ' ', $normalized)),
         ],
+        'withdrawn', 'cancelled' => [
+            'classes' => 'bg-slate-100 text-slate-700 border-slate-200 ring-slate-500/10',
+            'dot' => 'bg-slate-400',
+            'label' => 'Withdrawn',
+        ],
         'revision_requested' => [
             'classes' => 'bg-purple-50 text-purple-800 border-purple-200 ring-purple-500/10',
             'dot' => 'bg-purple-500',

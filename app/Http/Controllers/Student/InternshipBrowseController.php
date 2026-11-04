@@ -18,30 +18,68 @@ class InternshipBrowseController extends Controller
      */
     public function index(Request $request): View
     {
-        $query = InternshipPost::with('companyProfile')
-            ->approved()
-            ->whereDate('deadline', '>=', now()->toDateString());
+        $query = InternshipPost::with('companyProfile')->approved();
 
-        // Search title/company/description
+        // ── 1. Deadline scope ──────────────────────────────────────────────
+        $deadline = $request->input('deadline', 'open');   // open | soon
+        if ($deadline === 'soon') {
+            // Closing within the next 7 days
+            $query->whereDate('deadline', '>=', now()->toDateString())
+                  ->whereDate('deadline', '<=', now()->addDays(7)->toDateString());
+        } else {
+            // Default: any post that hasn't expired yet
+            $query->whereDate('deadline', '>=', now()->toDateString());
+        }
+
+        // ── 2. Search (title / description / location / company) ───────────
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('title', 'like', "%{$search}%")
                   ->orWhere('description', 'like', "%{$search}%")
                   ->orWhere('location', 'like', "%{$search}%")
-                  ->orWhereHas('companyProfile', function ($compQ) use ($search) {
-                      $compQ->where('company_name', 'like', "%{$search}%");
-                  });
+                  ->orWhereHas('companyProfile', fn ($c) =>
+                      $c->where('company_name', 'like', "%{$search}%")
+                  );
             });
         }
 
-        // Filter by category
+        // ── 3. Category filter ─────────────────────────────────────────────
         if ($category = $request->input('category')) {
             $query->where('category', $category);
         }
 
-        $posts = $query->latest()->get();
+        // ── 4. Stipend filter ──────────────────────────────────────────────
+        $stipend = $request->input('stipend', '');   // '' | has | none | min
+        $stipendMin = $request->input('stipend_min');
 
-        return view('student.posts.index', compact('posts'));
+        if ($stipend === 'has') {
+            $query->whereNotNull('stipend')->where('stipend', '>', 0);
+        } elseif ($stipend === 'none') {
+            $query->where(function ($q) {
+                $q->whereNull('stipend')->orWhere('stipend', 0);
+            });
+        } elseif ($stipend === 'min' && is_numeric($stipendMin) && $stipendMin >= 0) {
+            $query->where('stipend', '>=', (float) $stipendMin);
+        }
+
+        // ── 5. Sort ────────────────────────────────────────────────────────
+        $sort = $request->input('sort', 'newest');   // newest | deadline | stipend
+
+        match ($sort) {
+            'deadline' => $query->orderBy('deadline', 'asc'),
+            'stipend'  => $query->orderBy('stipend', 'desc')->orderBy('created_at', 'desc'),
+            default    => $query->latest(),           // newest
+        };
+
+        $posts = $query->get();
+
+        // ── 6. Bookmarks ───────────────────────────────────────────────────
+        $student           = Auth::user()->studentProfile;
+        $bookmarkedPostIds = $student
+            ? $student->bookmarks()->pluck('internship_post_id')->toArray()
+            : [];
+
+        return view('student.posts.index', compact('posts', 'bookmarkedPostIds'));
     }
 
     /**
@@ -56,7 +94,10 @@ class InternshipBrowseController extends Controller
             ->where('internship_post_id', $post->id)
             ->first();
 
-        return view('student.posts.show', compact('post', 'existingApplication', 'student'));
+        // Check if post is bookmarked
+        $isBookmarked = $student ? $student->hasBookmarked($post->id) : false;
+
+        return view('student.posts.show', compact('post', 'existingApplication', 'student', 'isBookmarked'));
     }
 
     /**
@@ -70,50 +111,75 @@ class InternshipBrowseController extends Controller
             return back()->with('error', 'Student profile not found.');
         }
 
-        // Prevent duplicate application
-        $exists = Application::where('student_profile_id', $student->id)
+        // Prevent duplicate active application (Feature 1.5: allow re-application if previously withdrawn)
+        $existingApp = Application::where('student_profile_id', $student->id)
             ->where('internship_post_id', $post->id)
-            ->exists();
+            ->first();
 
-        if ($exists) {
+        if ($existingApp && $existingApp->status !== 'withdrawn') {
             return back()->with('error', 'You have already applied for this position.');
         }
 
+        // ── Feature 1.4: resume_source decides whether to use profile or custom resume ──
+        $resumeSource = $request->input('resume_source', 'profile'); // profile | custom
+
+        // Determine if student already has a usable profile resume
+        $hasProfileResume = $student->resume_path &&
+            (Storage::disk('local')->exists($student->resume_path) ||
+             Storage::disk('public')->exists($student->resume_path));
+
+        // Validate: resume file is required only when source=custom AND no profile resume exists
+        $resumeRequired = ($resumeSource === 'custom' && !$hasProfileResume) ? 'required' : 'nullable';
+
         $validated = $request->validate([
-            'cover_letter' => ['required', 'string', 'min:30', 'max:3000'],
-            'resume' => ['nullable', 'file', 'mimes:pdf,doc,docx', 'max:5120'],
+            'cover_letter'  => ['required', 'string', 'min:30', 'max:3000'],
+            'resume_source' => ['nullable', 'in:profile,custom'],
+            'resume'        => [$resumeRequired, 'file', 'mimes:pdf,doc,docx', 'max:5120'],
         ]);
 
         $customResumePath = null;
 
-        // If a tailored resume was uploaded with this application (store in private local storage)
-        if ($request->hasFile('resume')) {
+        if ($resumeSource === 'custom' && $request->hasFile('resume')) {
+            // Student chose to upload a tailored resume for this application
             $file = $request->file('resume');
             if ($file->isValid()) {
                 $originalName = $file->getClientOriginalName();
                 $customResumePath = $file->storeAs('resumes/' . $student->id, $originalName, 'local');
 
-                // If student doesn't have a profile resume yet, also set it as their profile resume
-                $hasProfileResume = $student->resume_path && (Storage::disk('local')->exists($student->resume_path) || Storage::disk('public')->exists($student->resume_path));
+                // Also save as profile resume if student has none yet
                 if (!$hasProfileResume) {
                     $student->update(['resume_path' => $customResumePath]);
                 }
             }
-        } elseif ($student->resume_path && (Storage::disk('local')->exists($student->resume_path) || Storage::disk('public')->exists($student->resume_path))) {
-            // Use profile resume
+        } elseif ($resumeSource === 'custom' && $hasProfileResume) {
+            // Chose "Upload" tab but submitted without a file → fall back to profile resume
+            $customResumePath = $student->resume_path;
+        } elseif ($resumeSource === 'profile' && $hasProfileResume) {
+            // Student chose to use their profile resume as-is
             $customResumePath = $student->resume_path;
         } else {
             return back()->withInput()->with('error', 'Please upload a resume file (PDF or Word document) to submit your application.');
         }
 
-        Application::create([
-            'internship_post_id' => $post->id,
-            'student_profile_id' => $student->id,
-            'cover_letter' => $validated['cover_letter'],
-            'custom_resume_path' => $customResumePath,
-            'status' => 'pending',
-            'applied_at' => now(),
-        ]);
+        if ($existingApp) {
+            $existingApp->update([
+                'cover_letter'       => $validated['cover_letter'],
+                'custom_resume_path' => $customResumePath,
+                'status'             => 'pending',
+                'company_notes'      => null,
+                'applied_at'         => now(),
+                'reviewed_at'        => null,
+            ]);
+        } else {
+            Application::create([
+                'internship_post_id' => $post->id,
+                'student_profile_id' => $student->id,
+                'cover_letter'       => $validated['cover_letter'],
+                'custom_resume_path' => $customResumePath,
+                'status'             => 'pending',
+                'applied_at'         => now(),
+            ]);
+        }
 
         // Notify employer of new applicant
         $post->companyProfile?->user?->notify(new \App\Notifications\AppNotification(
@@ -126,6 +192,41 @@ class InternshipBrowseController extends Controller
 
         return redirect()->route('student.applications.index')
             ->with('success', "Application successfully submitted with your resume to {$post->companyProfile->company_name}!");
+    }
+
+    /**
+     * Withdraw a submitted application (Feature 1.5 - status = applied/pending only).
+     */
+    public function withdraw(Application $application): RedirectResponse
+    {
+        $student = Auth::user()->studentProfile;
+
+        if (!$student || $application->student_profile_id !== $student->id) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        if (!$application->canBeWithdrawn()) {
+            return back()->with('error', 'Only applications currently pending review can be withdrawn.');
+        }
+
+        $application->update([
+            'status' => 'withdrawn',
+        ]);
+
+        // Notify host company recruiter
+        $companyUser = $application->internshipPost->companyProfile?->user;
+        if ($companyUser) {
+            $companyUser->notify(new \App\Notifications\AppNotification(
+                title: 'Application Withdrawn',
+                message: Auth::user()->name . " withdrew their application for '" . $application->internshipPost->title . "'.",
+                actionUrl: route('company.applicants.index'),
+                icon: 'fa-solid fa-user-minus',
+                color: 'rose'
+            ));
+        }
+
+        return redirect()->route('student.applications.index')
+            ->with('success', "Your application for '{$application->internshipPost->title}' has been successfully withdrawn.");
     }
 
     /**

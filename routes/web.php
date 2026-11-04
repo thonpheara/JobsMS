@@ -13,6 +13,8 @@ use App\Http\Controllers\Company\CompanyDashboardController;
 use App\Http\Controllers\Company\CompanyProfileController;
 use App\Http\Controllers\Company\InternshipPostController;
 use App\Http\Controllers\Company\MessageController as CompanyMessageController;
+use App\Http\Controllers\Student\BookmarkController;
+use App\Http\Controllers\Student\CompanyPublicController;
 use App\Http\Controllers\Student\InternshipBrowseController;
 use App\Http\Controllers\Student\MessageController as StudentMessageController;
 use App\Http\Controllers\Student\StudentDashboardController;
@@ -67,6 +69,14 @@ Route::prefix('student')->as('student.')->middleware(['auth', 'role:student'])->
     Route::get('/posts/{post}', [InternshipBrowseController::class, 'show'])->name('posts.show');
     Route::post('/posts/{post}/apply', [InternshipBrowseController::class, 'apply'])->name('posts.apply');
     Route::get('/applications', [InternshipBrowseController::class, 'applications'])->name('applications.index');
+    Route::post('/applications/{application}/withdraw', [InternshipBrowseController::class, 'withdraw'])->name('applications.withdraw');
+
+    // Company Public Profile (Feature 1.6)
+    Route::get('/companies/{company}', [CompanyPublicController::class, 'show'])->name('companies.show');
+
+    // Bookmarks (Saved Jobs)
+    Route::get('/bookmarks', [BookmarkController::class, 'index'])->name('bookmarks.index');
+    Route::post('/posts/{post}/bookmark', [BookmarkController::class, 'toggle'])->name('posts.bookmark');
 
     // Direct messaging
     Route::get('/messages', [StudentMessageController::class, 'index'])->name('messages.index');

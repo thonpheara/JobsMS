@@ -64,6 +64,42 @@ class InternshipPost extends Model
             ->whereDate('deadline', '>=', now());
     }
 
+    /**
+     * Scope a query to posts recommended for a given student based on major and skills.
+     */
+    public function scopeRecommendedFor(Builder $query, ?StudentProfile $student): Builder
+    {
+        // Must be approved and not yet expired
+        $query->where('status', 'approved')
+              ->whereDate('deadline', '>=', now()->toDateString());
+
+        if (!$student) {
+            return $query->latest();
+        }
+
+        // Exclude positions the student has already applied to
+        $query->whereDoesntHave('applications', function ($q) use ($student) {
+            $q->where('student_profile_id', $student->id);
+        });
+
+        // Collect keywords from student major and skills
+        $keywords = $student->getRecommendationKeywords();
+
+        if (empty($keywords)) {
+            return $query->latest();
+        }
+
+        // Filter posts that match any of the student's skills or major keywords
+        return $query->where(function ($sub) use ($keywords) {
+            foreach ($keywords as $keyword) {
+                $sub->orWhere('title', 'like', "%{$keyword}%")
+                    ->orWhere('category', 'like', "%{$keyword}%")
+                    ->orWhere('requirements', 'like', "%{$keyword}%")
+                    ->orWhere('description', 'like', "%{$keyword}%");
+            }
+        });
+    }
+
     public function isApproved(): bool
     {
         return $this->status === 'approved';

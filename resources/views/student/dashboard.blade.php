@@ -122,18 +122,37 @@
                 @endif
             </div>
 
-            <!-- Right: Recommended Internships Section (5 cols) -->
-            <div class="lg:col-span-5 p-5 sm:p-6 rounded-3xl bg-white border border-[#E5E7EB] shadow-xs flex flex-col h-full min-h-0 overflow-hidden">
+            <!-- Right: Recommended Internships Section (5 cols - Feature 1.7 Smart Match) -->
+            <div class="lg:col-span-5 p-5 sm:p-6 rounded-3xl bg-white border border-[#E5E7EB] shadow-xs flex flex-col h-full min-h-0 overflow-hidden space-y-3">
                 <div class="flex items-center justify-between pb-3 border-b border-[#E5E7EB] shrink-0">
-                    <h4 class="text-sm font-bold text-[#111827] uppercase tracking-wider flex items-center gap-2">
-                        <i class="fa-solid fa-wand-magic-sparkles w-4 h-4 text-[#059669]"></i>
-                        Recommended Internships
-                    </h4>
-                    <a href="{{ route('student.posts.index') }}" class="text-xs font-semibold text-[#059669] hover:underline flex items-center gap-1">
+                    <div class="flex items-center gap-2 min-w-0">
+                        <h4 class="text-sm font-bold text-[#111827] uppercase tracking-wider flex items-center gap-2 truncate">
+                            <i class="fa-solid fa-wand-magic-sparkles w-4 h-4 text-[#059669]"></i>
+                            Recommended For You
+                        </h4>
+                        @if (!empty($student?->major) || !empty($student?->skills))
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200/80 shrink-0">
+                                <i class="fa-solid fa-sparkles text-[8px]"></i>
+                                <span>Smart Match</span>
+                            </span>
+                        @endif
+                    </div>
+                    <a href="{{ route('student.posts.index') }}" class="text-xs font-semibold text-[#059669] hover:underline flex items-center gap-1 shrink-0">
                         <span>Explore All</span>
                         <i class="fa-solid fa-arrow-right text-[10px]"></i>
                     </a>
                 </div>
+
+                {{-- Hint for students who haven't completed their profile skills --}}
+                @if (empty($student?->major) && empty($student?->skills))
+                    <div class="p-2.5 rounded-2xl bg-amber-50 border border-amber-200/80 text-[11px] text-amber-800 flex items-center justify-between gap-2 shrink-0">
+                        <span class="flex items-center gap-1.5 min-w-0">
+                            <i class="fa-solid fa-lightbulb text-amber-600 shrink-0 text-xs"></i>
+                            <span class="truncate">Add your major & skills to unlock tailored matches.</span>
+                        </span>
+                        <a href="{{ route('student.profile') }}" class="font-bold text-amber-900 underline shrink-0 hover:text-amber-950">Update &rarr;</a>
+                    </div>
+                @endif
 
                 @if (isset($recommendedPosts) && $recommendedPosts->isNotEmpty())
                     <div class="space-y-3 flex-1 min-h-0 overflow-y-auto pr-1">
@@ -147,19 +166,49 @@
                             <div class="p-3 sm:p-3.5 rounded-2xl border border-gray-100 hover:border-[#059669]/40 hover:bg-emerald-50/20 transition-all flex flex-col gap-2.5 group">
                                 <div class="flex items-center gap-3">
                                     @if($compHasLogo && $compLogo)
-                                        <img src="{{ $compLogo }}" alt="{{ $comp?->company_name }}" class="w-9 h-9 rounded-xl object-cover shrink-0 border border-slate-200">
+                                        <a href="{{ route('student.companies.show', $comp) }}" title="View {{ $comp?->company_name }} profile" class="shrink-0">
+                                            <img src="{{ $compLogo }}" alt="{{ $comp?->company_name }}" class="w-9 h-9 rounded-xl object-cover border border-slate-200 hover:opacity-90 transition-opacity">
+                                        </a>
                                     @else
-                                        <div class="w-9 h-9 rounded-xl bg-teal-700 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+                                        <a href="{{ route('student.companies.show', $comp) }}" title="View {{ $comp?->company_name }} profile"
+                                           class="w-9 h-9 rounded-xl bg-teal-700 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs hover:bg-teal-800 transition-colors">
                                             {{ $compInitials }}
-                                        </div>
+                                        </a>
                                     @endif
                                     <div class="min-w-0 flex-1">
                                         <a href="{{ route('student.posts.show', $post) }}" class="text-xs font-bold text-[#111827] group-hover:text-[#059669] transition-colors truncate block">
                                             {{ $post->title }}
                                         </a>
-                                        <p class="text-[11px] text-gray-500 truncate">{{ $comp?->company_name }} • {{ $post->location }}</p>
+                                        <p class="text-[11px] text-gray-500 truncate">
+                                            <a href="{{ route('student.companies.show', $comp) }}" class="hover:text-emerald-600 hover:underline transition-colors">
+                                                {{ $comp?->company_name }}
+                                            </a>
+                                            <span class="text-slate-300">•</span>
+                                            <span>{{ $post->location }}</span>
+                                        </p>
                                     </div>
                                 </div>
+
+                                {{-- Smart Match Badges (Skills / Major) --}}
+                                @if (!empty($post->has_smart_match))
+                                    <div class="flex items-center gap-1.5 flex-wrap">
+                                        @if (!empty($post->is_major_match))
+                                            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-[10px] font-bold border border-indigo-200/80">
+                                                <i class="fa-solid fa-graduation-cap text-[9px]"></i>
+                                                <span class="truncate max-w-[120px]">{{ $student->major }}</span>
+                                            </span>
+                                        @endif
+                                        @if (!empty($post->matched_skills))
+                                            @foreach ($post->matched_skills as $skill)
+                                                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-semibold border border-emerald-200/80">
+                                                    <i class="fa-solid fa-check text-[8px] text-emerald-600"></i>
+                                                    <span>{{ $skill }}</span>
+                                                </span>
+                                            @endforeach
+                                        @endif
+                                    </div>
+                                @endif
+
                                 <div class="flex items-center justify-between gap-2 pt-2 border-t border-gray-100/80 text-[11px]">
                                     <span class="font-bold text-[#059669]">
                                         @if ($post->stipend)

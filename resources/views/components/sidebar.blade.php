@@ -62,6 +62,19 @@
                 <i class="fa-solid fa-file-circle-check w-4.5 h-4.5"></i>
                 My Applications
             </a>
+            <a href="{{ route('student.bookmarks.index') }}"
+               class="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm {{ request()->routeIs('student.bookmarks.*') ? $activeClass : $inactiveClass }}">
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-heart w-4.5 h-4.5"></i>
+                    <span>Saved Jobs</span>
+                </div>
+                @php $savedCount = Auth::user()->studentProfile?->bookmarks()->count() ?? 0; @endphp
+                @if($savedCount > 0)
+                    <span class="px-2 py-0.5 text-[10px] font-bold rounded-full {{ request()->routeIs('student.bookmarks.*') ? 'bg-[#D1FAE5] text-[#065F46]' : 'bg-rose-500 text-white' }}">
+                        {{ $savedCount }}
+                    </span>
+                @endif
+            </a>
             <a href="{{ route('student.messages.index') }}" 
                class="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm {{ request()->routeIs('student.messages.*') ? $activeClass : $inactiveClass }}">
                 <div class="flex items-center gap-3">

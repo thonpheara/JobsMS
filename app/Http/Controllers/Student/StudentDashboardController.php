@@ -44,24 +44,66 @@ class StudentDashboardController extends Controller
                 ->count(),
         ];
 
-        // Recommended / Available internship posts (posts the student hasn't applied to yet)
-        $recommendedPosts = InternshipPost::with('companyProfile')
-            ->approved()
-            ->whereDate('deadline', '>=', now()->toDateString())
-            ->whereDoesntHave('applications', function ($q) use ($student) {
-                $q->where('student_profile_id', $student?->id);
-            })
-            ->latest()
-            ->take(3)
-            ->get();
+        // Recommended / Available internship posts (Smart Recommendations via Feature 1.7)
+        $matchingQuery = InternshipPost::with('companyProfile')
+            ->recommendedFor($student);
 
-        if ($recommendedPosts->isEmpty()) {
-            $recommendedPosts = InternshipPost::with('companyProfile')
+        $matchedPosts = $matchingQuery->get();
+
+        // Calculate relevance match score (Skills + Major) and sort highest to lowest
+        $rankedPosts = $matchedPosts->map(function ($post) use ($student) {
+            $postText = strtolower($post->title . ' ' . $post->category . ' ' . $post->requirements . ' ' . $post->description);
+
+            $matchedSkills = [];
+            if ($student && is_array($student->skills)) {
+                foreach ($student->skills as $skill) {
+                    $skillStr = trim((string) $skill);
+                    if ($skillStr !== '' && str_contains($postText, strtolower($skillStr))) {
+                        $matchedSkills[] = $skillStr;
+                    }
+                }
+            }
+
+            $isMajorMatch = false;
+            if ($student && !empty($student->major)) {
+                $isMajorMatch = str_contains($postText, strtolower(trim($student->major)));
+            }
+
+            $post->matched_skills   = array_slice(array_unique($matchedSkills), 0, 3);
+            $post->is_major_match   = $isMajorMatch;
+            $post->has_smart_match  = !empty($matchedSkills) || $isMajorMatch;
+            $post->match_score      = (count($matchedSkills) * 2) + ($isMajorMatch ? 3 : 0);
+
+            return $post;
+        })
+        ->sortByDesc('match_score')
+        ->values();
+
+        $recommendedPosts = $rankedPosts->take(4);
+
+        // If fewer than 4 matched, backfill with general open approved posts (excluding already applied)
+        if ($recommendedPosts->count() < 4) {
+            $existingIds = $recommendedPosts->pluck('id')->toArray();
+
+            $fallbackPosts = InternshipPost::with('companyProfile')
                 ->approved()
                 ->whereDate('deadline', '>=', now()->toDateString())
+                ->whereDoesntHave('applications', function ($q) use ($student) {
+                    $q->where('student_profile_id', $student?->id);
+                })
+                ->whereNotIn('id', $existingIds)
                 ->latest()
-                ->take(3)
-                ->get();
+                ->take(4 - $recommendedPosts->count())
+                ->get()
+                ->map(function ($post) {
+                    $post->matched_skills  = [];
+                    $post->is_major_match  = false;
+                    $post->has_smart_match = false;
+                    $post->match_score     = 0;
+                    return $post;
+                });
+
+            $recommendedPosts = $recommendedPosts->concat($fallbackPosts);
         }
 
         return view('student.dashboard', compact('student', 'recentApplications', 'stats', 'recommendedPosts'));
