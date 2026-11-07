@@ -86,6 +86,10 @@ Route::prefix('student')->as('student.')->middleware(['auth', 'role:student'])->
     // Resume preview / download / delete
     Route::get('/resume/preview', [StudentDashboardController::class, 'previewResume'])->name('resume.preview');
     Route::delete('/resume', [StudentDashboardController::class, 'deleteResume'])->name('resume.delete');
+
+    // Interviews (Feature 2.4 - Confirm / Reschedule)
+    Route::post('/interviews/{interview}/confirm', [\App\Http\Controllers\Student\InterviewResponseController::class, 'confirm'])->name('interviews.confirm');
+    Route::post('/interviews/{interview}/reschedule', [\App\Http\Controllers\Student\InterviewResponseController::class, 'reschedule'])->name('interviews.reschedule');
 });
 
 // ==========================================
@@ -98,11 +102,15 @@ Route::prefix('company')->as('company.')->middleware(['auth', 'role:company'])->
     Route::put('/profile/password', [CompanyProfileController::class, 'updatePassword'])->name('password.update');
 
     // Manage internship posts
+    Route::post('/posts/{post}/duplicate', [InternshipPostController::class, 'duplicate'])->name('posts.duplicate');
+    Route::post('/posts/{post}/submit', [InternshipPostController::class, 'submitForApproval'])->name('posts.submit');
     Route::resource('posts', InternshipPostController::class)->except(['show']);
 
     // Review applicants
     Route::get('/applicants', [ApplicantReviewController::class, 'index'])->name('applicants.index');
-    Route::put('/applicants/{application}', [ApplicantReviewController::class, 'updateStatus'])->name('applicants.update');
+    Route::match(['put', 'patch'], '/applicants/{application}', [ApplicantReviewController::class, 'updateStatus'])->name('applicants.update');
+    Route::patch('/applicants/{application}/status', [ApplicantReviewController::class, 'updateStatus'])->name('applicants.status.patch');
+    Route::post('/applicants/{application}/interview', [ApplicantReviewController::class, 'scheduleInterview'])->name('applicants.interview.store');
     Route::get('/applicants/{application}/resume', [ApplicantReviewController::class, 'resume'])->name('applicants.resume');
 
     // Direct messaging

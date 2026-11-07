@@ -58,6 +58,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Company public profile
         Route::get('/companies/{id}', [StudentApiController::class, 'showCompany'])->name('api.student.companies.show');
+
+        // Interview response
+        Route::post('/interviews/{id}/confirm', [StudentApiController::class, 'confirmInterview'])->name('api.student.interviews.confirm');
+        Route::post('/interviews/{id}/reschedule', [StudentApiController::class, 'rescheduleInterview'])->name('api.student.interviews.reschedule');
     });
 
     // 3. Company Portal API
@@ -72,11 +76,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/posts/{id}', [CompanyApiController::class, 'showPost'])->name('api.company.posts.show');
         Route::put('/posts/{id}', [CompanyApiController::class, 'updatePost'])->name('api.company.posts.update');
         Route::delete('/posts/{id}', [CompanyApiController::class, 'deletePost'])->name('api.company.posts.delete');
+        Route::post('/posts/{id}/duplicate', [CompanyApiController::class, 'duplicatePost'])->name('api.company.posts.duplicate');
+        Route::post('/posts/{id}/submit', [CompanyApiController::class, 'submitPost'])->name('api.company.posts.submit');
 
         // Review applicants
         Route::get('/applicants', [CompanyApiController::class, 'listApplicants'])->name('api.company.applicants');
         Route::get('/applicants/{id}', [CompanyApiController::class, 'showApplicant'])->name('api.company.applicants.show');
         Route::put('/applicants/{id}/status', [CompanyApiController::class, 'updateApplicantStatus'])->name('api.company.applicants.status');
+        Route::post('/applicants/{id}/interview', [CompanyApiController::class, 'scheduleInterview'])->name('api.company.applicants.interview');
     });
 
     // 4. In-App Direct Messaging & Chat

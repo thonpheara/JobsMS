@@ -1,8 +1,169 @@
 <x-layout>
-    <div class="flex flex-col h-[calc(100vh-6rem)] sm:h-[calc(100vh-7rem)] lg:h-[calc(100vh-8rem)] space-y-4 sm:space-y-5">
+    <!-- Script Component Definition for Company Dashboard Charts -->
+    <script>
+        function topPostsBarChart(serverData) {
+            return {
+                chartData: serverData || { labels: [], fullTitles: [], data: [], total: 0, hasData: false },
+                chart: null,
+                init() {
+                    this.$nextTick(() => {
+                        if (this.chartData.hasData) {
+                            this.renderChart();
+                        }
+                    });
+                },
+                renderChart() {
+                    const canvas = document.getElementById('topPostsBarCanvas');
+                    if (!canvas || typeof Chart === 'undefined') return;
+                    const ctx = canvas.getContext('2d');
 
-        <!-- Top Header & Quick Actions (shrink-0) -->
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-slate-200/60 shrink-0">
+                    this.chart = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: this.chartData.labels,
+                            datasets: [{
+                                label: 'Applications',
+                                data: this.chartData.data,
+                                backgroundColor: '#059669',
+                                hoverBackgroundColor: '#047857',
+                                borderRadius: 8,
+                                borderSkipped: false,
+                                maxBarThickness: 42,
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: false
+                                },
+                                tooltip: {
+                                    backgroundColor: '#0F172A',
+                                    titleFont: { family: "'Plus Jakarta Sans', sans-serif", size: 12, weight: 'bold' },
+                                    bodyFont: { family: "'Plus Jakarta Sans', sans-serif", size: 12 },
+                                    padding: 10,
+                                    cornerRadius: 10,
+                                    callbacks: {
+                                        title: (items) => {
+                                            const idx = items[0].dataIndex;
+                                            return this.chartData.fullTitles[idx] || items[0].label;
+                                        },
+                                        label: (item) => ` ${item.parsed.y} Applications received`
+                                    }
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    grid: { display: false },
+                                    border: { display: false },
+                                    ticks: {
+                                        color: '#64748B',
+                                        font: { family: "'Plus Jakarta Sans', sans-serif", size: 11, weight: '600' }
+                                    }
+                                },
+                                y: {
+                                    beginAtZero: true,
+                                    border: { display: false },
+                                    grid: { color: '#F1F5F9', drawTicks: false },
+                                    ticks: {
+                                        precision: 0,
+                                        color: '#64748B',
+                                        font: { family: "'Plus Jakarta Sans', sans-serif", size: 11 }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            };
+        }
+
+        function applicantStatusDonutChart(serverData) {
+            return {
+                donutData: serverData || {
+                    labels: ['Applied', 'Shortlisted', 'Accepted', 'Rejected'],
+                    data: [0, 0, 0, 0],
+                    colors: ['#0EA5E9', '#6366F1', '#10B981', '#F43F5E'],
+                    total: 0,
+                    placementRate: 0,
+                    counts: { applied: 0, shortlisted: 0, accepted: 0, rejected: 0 },
+                    percentages: { applied: 0, shortlisted: 0, accepted: 0, rejected: 0 }
+                },
+                chart: null,
+                init() {
+                    this.$nextTick(() => {
+                        this.renderChart();
+                    });
+                },
+                renderChart() {
+                    const canvas = document.getElementById('companyStatusDonutCanvas');
+                    if (!canvas || typeof Chart === 'undefined') return;
+                    const ctx = canvas.getContext('2d');
+
+                    const hasData = this.donutData.data && this.donutData.data.some(v => v > 0);
+                    const chartData = hasData ? this.donutData.data : [1];
+                    const chartColors = hasData ? this.donutData.colors : ['#E2E8F0'];
+                    const chartLabels = hasData ? this.donutData.labels : ['No Applications'];
+
+                    this.chart = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: chartLabels,
+                            datasets: [{
+                                data: chartData,
+                                backgroundColor: chartColors,
+                                borderWidth: 3,
+                                borderColor: '#FFFFFF',
+                                hoverOffset: hasData ? 6 : 0,
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            cutout: '72%',
+                            plugins: {
+                                legend: {
+                                    display: false
+                                },
+                                tooltip: {
+                                    enabled: hasData,
+                                    backgroundColor: '#0F172A',
+                                    titleFont: { family: "'Plus Jakarta Sans', sans-serif", size: 12, weight: 'bold' },
+                                    bodyFont: { family: "'Plus Jakarta Sans', sans-serif", size: 12 },
+                                    padding: 10,
+                                    cornerRadius: 10,
+                                    callbacks: {
+                                        label: (item) => {
+                                            const count = item.parsed;
+                                            const total = this.donutData.total;
+                                            const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+                                            return ` ${item.label}: ${count} (${pct}%)`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            };
+        }
+
+        if (typeof Alpine !== 'undefined') {
+            Alpine.data('topPostsBarChart', topPostsBarChart);
+            Alpine.data('applicantStatusDonutChart', applicantStatusDonutChart);
+        } else {
+            document.addEventListener('alpine:init', () => {
+                Alpine.data('topPostsBarChart', topPostsBarChart);
+                Alpine.data('applicantStatusDonutChart', applicantStatusDonutChart);
+            });
+        }
+    </script>
+
+    <div class="space-y-6">
+
+        <!-- Top Header & Quick Actions -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-slate-200/60">
             <div>
                 <h1 class="text-xl sm:text-2xl font-black tracking-tight text-slate-900">
                     Welcome, {{ $company->company_name ?? Auth::user()->name }}!
@@ -25,9 +186,9 @@
             </div>
         </div>
 
-        <!-- Organization Verification Status Alerts (shrink-0) -->
+        <!-- Organization Verification Status Alerts -->
         @if($company && $company->verification_status === 'pending')
-            <div class="p-3.5 rounded-2xl bg-amber-50 border border-amber-200/80 text-amber-800 flex items-start gap-3 text-xs shadow-2xs shrink-0">
+            <div class="p-3.5 rounded-2xl bg-amber-50 border border-amber-200/80 text-amber-800 flex items-start gap-3 text-xs shadow-2xs">
                 <div class="w-7 h-7 rounded-xl bg-amber-100/80 text-amber-700 flex items-center justify-center shrink-0">
                     <i class="fa-solid fa-clock-rotate-left text-xs"></i>
                 </div>
@@ -39,7 +200,7 @@
                 </div>
             </div>
         @elseif($company && $company->verification_status === 'rejected')
-            <div class="p-3.5 rounded-2xl bg-rose-50 border border-rose-200/80 text-rose-800 flex items-start gap-3 text-xs shadow-2xs shrink-0">
+            <div class="p-3.5 rounded-2xl bg-rose-50 border border-rose-200/80 text-rose-800 flex items-start gap-3 text-xs shadow-2xs">
                 <div class="w-7 h-7 rounded-xl bg-rose-100/80 text-rose-700 flex items-center justify-center shrink-0">
                     <i class="fa-solid fa-triangle-exclamation text-xs"></i>
                 </div>
@@ -52,8 +213,8 @@
             </div>
         @endif
 
-        <!-- 4 Key Performance Metrics Grid (shrink-0) -->
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 shrink-0">
+        <!-- 4 Key Performance Metrics Grid -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             
             <!-- 1. Active Listings -->
             <a href="{{ route('company.posts.index') }}" 
@@ -140,11 +301,156 @@
             </a>
         </div>
 
-        <!-- 2-Column Main Content (Full remaining 100vh height: flex-1 min-h-0) -->
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 flex-1 min-h-0">
+        <!-- ========================================================================= -->
+        <!-- FEATURE 2.5: RECRUITMENT INTELLIGENCE & ANALYTICS CHARTS (lg:grid-cols-12)-->
+        <!-- ========================================================================= -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
 
-            <!-- Left Column: Recent Candidate Submissions (7 cols, Full Height Scrollable) -->
-            <div class="lg:col-span-7 p-5 sm:p-6 rounded-3xl bg-white border border-[#E5E7EB] shadow-xs flex flex-col h-full min-h-0 overflow-hidden">
+            <!-- Chart 1: Bar Chart — Applications received per post (Top 5 posts) -->
+            <div class="lg:col-span-7 p-6 sm:p-7 rounded-3xl bg-white border border-[#E5E7EB] shadow-xs flex flex-col justify-between"
+                 x-data="topPostsBarChart(@js($topPostsChart))">
+                
+                <!-- Card Header -->
+                <div class="flex items-center justify-between gap-3 pb-3.5 border-b border-gray-100 shrink-0">
+                    <div>
+                        <h4 class="text-base sm:text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                            <span class="w-8 h-8 rounded-xl bg-emerald-50 text-[#059669] flex items-center justify-center">
+                                <i class="fa-solid fa-chart-column text-xs"></i>
+                            </span>
+                            <span>Applications per Listing</span>
+                        </h4>
+                        <p class="text-xs text-slate-500 mt-0.5 font-medium">Top 5 vacancies ranked by student applications</p>
+                    </div>
+                    <a href="{{ route('company.posts.index') }}" class="text-xs font-semibold text-[#059669] hover:underline whitespace-nowrap shrink-0 flex items-center gap-1 group">
+                        <span>Manage Listings</span>
+                        <i class="fa-solid fa-arrow-right text-[10px] group-hover:translate-x-0.5 transition-transform"></i>
+                    </a>
+                </div>
+
+                <!-- Canvas Area / Empty State -->
+                <div class="relative w-full flex-1 min-h-[220px] sm:min-h-[240px] my-3 flex items-center justify-center">
+                    <template x-if="chartData.hasData">
+                        <canvas id="topPostsBarCanvas" class="w-full h-full max-h-[260px]"></canvas>
+                    </template>
+                    <template x-if="!chartData.hasData">
+                        <div class="w-full h-52 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/60 flex flex-col items-center justify-center text-center p-6">
+                            <div class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mb-2.5">
+                                <i class="fa-solid fa-chart-column text-lg"></i>
+                            </div>
+                            <p class="text-xs font-bold text-slate-800">No applications received yet</p>
+                            <p class="text-[11px] text-slate-400 mt-0.5 max-w-xs">Publish vacancies and receive student candidacies to view application volume metrics.</p>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Bottom Legend & Summary -->
+                <div class="flex items-center justify-between pt-3 border-t border-gray-100 shrink-0 text-xs">
+                    <div class="flex items-center gap-2">
+                        <span class="w-3.5 h-3 rounded-xs bg-[#059669] inline-block"></span>
+                        <span class="font-semibold text-slate-700">Candidacy Submissions</span>
+                    </div>
+                    <span class="text-slate-500 font-medium">
+                        Top posts volume: <strong class="text-slate-900 font-bold" x-text="chartData.total"></strong> applicants
+                    </span>
+                </div>
+            </div>
+
+            <!-- Chart 2: Donut Chart — Applicant Status Breakdown -->
+            <div class="lg:col-span-5 p-6 sm:p-7 rounded-3xl bg-white border border-[#E5E7EB] shadow-xs flex flex-col justify-between"
+                 x-data="applicantStatusDonutChart(@js($donutData))">
+                
+                <!-- Card Header -->
+                <div class="flex items-center justify-between gap-3 pb-3.5 border-b border-gray-100 shrink-0">
+                    <div>
+                        <h4 class="text-base sm:text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                            <span class="w-8 h-8 rounded-xl bg-emerald-50 text-[#059669] flex items-center justify-center">
+                                <i class="fa-solid fa-chart-pie text-xs"></i>
+                            </span>
+                            <span>Candidacy Outcomes</span>
+                        </h4>
+                        <p class="text-xs text-slate-500 mt-0.5 font-medium">Status distribution across hiring pipeline</p>
+                    </div>
+                    <a href="{{ route('company.applicants.index') }}" class="text-xs font-semibold text-[#059669] hover:underline whitespace-nowrap shrink-0 flex items-center gap-1 group">
+                        <span>Pipeline</span>
+                        <i class="fa-solid fa-arrow-right text-[10px] group-hover:translate-x-0.5 transition-transform"></i>
+                    </a>
+                </div>
+
+                <!-- Donut Canvas with Center KPI Metric -->
+                <div class="relative w-full flex-1 min-h-[190px] my-3 flex items-center justify-center">
+                    <canvas id="companyStatusDonutCanvas" class="w-full h-full max-h-[210px]"></canvas>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
+                        <span class="text-2xl font-black text-slate-900 tracking-tight leading-none" x-text="donutData.total"></span>
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">Applicants</span>
+                        <template x-if="donutData.total > 0">
+                            <span class="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full mt-1 border border-emerald-200/70"
+                                  x-text="donutData.placementRate + '% Placed'"></span>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- 2x2 Custom Categorical Legend with Counts & Percentages -->
+                <div class="grid grid-cols-2 gap-2 pt-3 border-t border-gray-100 shrink-0">
+                    <!-- Applied -->
+                    <div class="flex items-center justify-between p-2.5 rounded-xl bg-sky-50/60 border border-sky-100">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <span class="w-2.5 h-2.5 rounded-full bg-sky-500 shrink-0"></span>
+                            <span class="text-xs font-bold text-slate-700 truncate">Applied</span>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <span class="text-xs font-black text-slate-900 block" x-text="donutData.counts.applied"></span>
+                            <span class="text-[10px] text-slate-500" x-text="donutData.percentages.applied + '%'"></span>
+                        </div>
+                    </div>
+
+                    <!-- Shortlisted -->
+                    <div class="flex items-center justify-between p-2.5 rounded-xl bg-indigo-50/60 border border-indigo-100">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <span class="w-2.5 h-2.5 rounded-full bg-indigo-500 shrink-0"></span>
+                            <span class="text-xs font-bold text-slate-700 truncate">Shortlisted</span>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <span class="text-xs font-black text-slate-900 block" x-text="donutData.counts.shortlisted"></span>
+                            <span class="text-[10px] text-slate-500" x-text="donutData.percentages.shortlisted + '%'"></span>
+                        </div>
+                    </div>
+
+                    <!-- Accepted -->
+                    <div class="flex items-center justify-between p-2.5 rounded-xl bg-emerald-50/60 border border-emerald-100">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></span>
+                            <span class="text-xs font-bold text-slate-700 truncate">Accepted</span>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <span class="text-xs font-black text-emerald-800 block" x-text="donutData.counts.accepted"></span>
+                            <span class="text-[10px] text-slate-500" x-text="donutData.percentages.accepted + '%'"></span>
+                        </div>
+                    </div>
+
+                    <!-- Rejected -->
+                    <div class="flex items-center justify-between p-2.5 rounded-xl bg-rose-50/60 border border-rose-100">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <span class="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0"></span>
+                            <span class="text-xs font-bold text-slate-700 truncate">Rejected</span>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <span class="text-xs font-black text-slate-900 block" x-text="donutData.counts.rejected"></span>
+                            <span class="text-[10px] text-slate-500" x-text="donutData.percentages.rejected + '%'"></span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- BOTTOM OPERATIONS GRID: RECENT CANDIDATES & PIPELINE SUMMARY              -->
+        <!-- ========================================================================= -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
+
+            <!-- Left Column: Recent Candidate Submissions (7 cols) -->
+            <div class="lg:col-span-7 p-5 sm:p-6 rounded-3xl bg-white border border-[#E5E7EB] shadow-xs flex flex-col justify-between">
                 <div class="flex items-center justify-between pb-3.5 border-b border-slate-100 shrink-0">
                     <div class="flex items-center gap-2.5">
                         <div class="w-8 h-8 rounded-xl bg-[#D1FAE5] text-[#059669] flex items-center justify-center">
@@ -167,7 +473,7 @@
                 </div>
 
                 @if ($recentApplicants->isNotEmpty())
-                    <div class="divide-y divide-slate-100 flex-1 min-h-0 overflow-y-auto pr-1 mt-1">
+                    <div class="divide-y divide-slate-100 mt-1 max-h-[420px] overflow-y-auto pr-1">
                         @foreach ($recentApplicants as $app)
                             @php
                                 $studentUser = $app->studentProfile?->user;
@@ -270,12 +576,12 @@
                 @endif
             </div>
 
-            <!-- Right Column: Hiring Pipeline Summary (5 cols, Full Height) -->
-            <div class="lg:col-span-5 p-5 sm:p-6 rounded-3xl bg-white border border-[#E5E7EB] shadow-xs flex flex-col h-full min-h-0 overflow-hidden">
+            <!-- Right Column: Hiring Pipeline Summary (5 cols) -->
+            <div class="lg:col-span-5 p-5 sm:p-6 rounded-3xl bg-white border border-[#E5E7EB] shadow-xs flex flex-col justify-between">
                 <div class="flex items-center justify-between pb-3.5 border-b border-slate-100 shrink-0">
                     <div class="flex items-center gap-2.5">
                         <div class="w-8 h-8 rounded-xl bg-[#D1FAE5] text-[#059669] flex items-center justify-center">
-                            <i class="fa-solid fa-chart-pie text-xs"></i>
+                            <i class="fa-solid fa-list-check text-xs"></i>
                         </div>
                         <div>
                             <h4 class="text-sm font-bold text-slate-900 tracking-tight">
@@ -291,8 +597,8 @@
                     </span>
                 </div>
 
-                <!-- Visual Segmented Progress Bar (shrink-0) -->
-                <div class="mt-4 shrink-0">
+                <!-- Visual Segmented Progress Bar -->
+                <div class="mt-4">
                     <div class="w-full h-3 rounded-full bg-slate-100 overflow-hidden flex">
                         @if($stats['total_applicants'] > 0)
                             @if($pipeline['pending']['percentage'] > 0)
@@ -326,8 +632,8 @@
                     </div>
                 </div>
 
-                <!-- Pipeline Stage Breakdown Rows (flex-1 min-h-0 overflow-y-auto) -->
-                <div class="mt-4 space-y-2 text-xs flex-1 min-h-0 overflow-y-auto pr-1">
+                <!-- Pipeline Stage Breakdown Rows -->
+                <div class="mt-4 space-y-2 text-xs">
                     @foreach($pipeline as $stageKey => $stage)
                         <a href="{{ route('company.applicants.index', ['status' => $stageKey === 'shortlisted' ? 'shortlisted' : $stageKey]) }}" 
                            class="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 transition-colors group border border-transparent hover:border-slate-200/60">
@@ -343,8 +649,8 @@
                     @endforeach
                 </div>
 
-                <!-- Bottom Summary & Action (shrink-0) -->
-                <div class="mt-4 pt-3.5 border-t border-slate-100 shrink-0 space-y-3">
+                <!-- Bottom Summary & Action -->
+                <div class="mt-4 pt-3.5 border-t border-slate-100 space-y-3">
                     <div class="flex items-center justify-between text-xs text-slate-500 px-1">
                         <span class="font-medium">Placement Rate</span>
                         <span class="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/60">

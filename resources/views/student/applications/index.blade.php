@@ -15,6 +15,22 @@
                  this.withdrawModalOpen = true;
              },
 
+             // Feature 2.4: Interview Reschedule Modal State
+             rescheduleModalOpen: false,
+             rescheduleUrl: '',
+             rescheduleJobTitle: '',
+             rescheduleCompanyName: '',
+             rescheduleReason: '',
+             rescheduleSubmitting: false,
+             openRescheduleModal(url, jobTitle, companyName) {
+                 this.rescheduleUrl = url;
+                 this.rescheduleJobTitle = jobTitle;
+                 this.rescheduleCompanyName = companyName;
+                 this.rescheduleReason = '';
+                 this.rescheduleSubmitting = false;
+                 this.rescheduleModalOpen = true;
+             },
+
              // Feature 1.8: Detail Modal State (Cover Letter & Resume Preview)
              detailModalOpen: false,
              detailTab: 'letter',
@@ -174,6 +190,95 @@
                             <div class="mb-4 px-1">
                                 <x-application-timeline :status="$app->status" />
                             </div>
+
+                            {{-- ── Feature 2.4: Interview Invitation Card ── --}}
+                            @if ($app->interview)
+                                @php
+                                    $interview = $app->interview;
+                                @endphp
+                                <div class="mb-4 p-4 rounded-2xl border transition-all {{ $interview->status === 'confirmed' ? 'bg-emerald-50/70 border-emerald-200' : ($interview->status === 'reschedule_requested' ? 'bg-amber-50/70 border-amber-200' : 'bg-indigo-50/70 border-indigo-200') }}">
+                                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                        <div class="flex items-start gap-3 min-w-0">
+                                            <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-xs {{ $interview->status === 'confirmed' ? 'bg-emerald-600 text-white' : ($interview->status === 'reschedule_requested' ? 'bg-amber-500 text-white' : 'bg-indigo-600 text-white') }}">
+                                                <i class="fa-solid {{ $interview->isOnline() ? 'fa-video' : 'fa-building' }} text-base"></i>
+                                            </div>
+                                            <div class="min-w-0">
+                                                <div class="flex items-center gap-2 flex-wrap">
+                                                    <span class="text-xs font-black uppercase tracking-wider text-slate-800">
+                                                        Interview Invitation
+                                                    </span>
+                                                    @if ($interview->status === 'confirmed')
+                                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800">
+                                                            <i class="fa-solid fa-circle-check text-[9px]"></i> Confirmed Attendance
+                                                        </span>
+                                                    @elseif ($interview->status === 'reschedule_requested')
+                                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800">
+                                                            <i class="fa-solid fa-clock-rotate-left text-[9px]"></i> Reschedule Requested
+                                                        </span>
+                                                    @else
+                                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-100 text-indigo-800">
+                                                            <i class="fa-solid fa-clock text-[9px]"></i> Action Required
+                                                        </span>
+                                                    @endif
+                                                </div>
+                                                <div class="mt-1 text-xs font-bold text-slate-900 flex items-center gap-1.5 flex-wrap">
+                                                    <i class="fa-solid fa-calendar-day text-indigo-600"></i>
+                                                    <span>{{ $interview->scheduled_at->format('l, M d, Y \a\t g:i A') }}</span>
+                                                    <span class="text-slate-300">•</span>
+                                                    <span class="text-slate-600 font-semibold">{{ $interview->isOnline() ? 'Online Video' : 'In-Person Office' }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {{-- Action response buttons --}}
+                                        @if ($interview->status === 'scheduled' && !$interview->confirmed_by_student)
+                                            <div class="flex items-center gap-2 shrink-0">
+                                                <form action="{{ route('student.interviews.confirm', $interview) }}" method="POST">
+                                                    @csrf
+                                                    <button type="submit" 
+                                                            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer">
+                                                        <i class="fa-solid fa-check text-[11px]"></i>
+                                                        <span>Confirm</span>
+                                                    </button>
+                                                </form>
+                                                <button type="button"
+                                                        @click="openRescheduleModal('{{ route('student.interviews.reschedule', $interview) }}', '{{ addslashes($app->internshipPost->title) }}', '{{ addslashes($appComp->company_name) }}')"
+                                                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all cursor-pointer">
+                                                    <i class="fa-solid fa-clock-rotate-left text-[11px] text-amber-600"></i>
+                                                    <span>Reschedule</span>
+                                                </button>
+                                            </div>
+                                        @endif
+                                    </div>
+
+                                    {{-- Location or Link & Notes --}}
+                                    <div class="mt-3 pt-3 border-t border-slate-200/60 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                                        <div class="flex items-start gap-2 min-w-0">
+                                            <span class="text-slate-400 font-semibold shrink-0">{{ $interview->isOnline() ? 'Link:' : 'Location:' }}</span>
+                                            @if ($interview->isOnline())
+                                                <a href="{{ $interview->location_or_link }}" target="_blank" class="text-indigo-600 hover:underline font-bold truncate flex items-center gap-1">
+                                                    <span class="truncate">{{ $interview->location_or_link }}</span>
+                                                    <i class="fa-solid fa-arrow-up-right-from-square text-[10px] shrink-0"></i>
+                                                </a>
+                                            @else
+                                                <span class="text-slate-700 font-medium break-words">{{ $interview->location_or_link }}</span>
+                                            @endif
+                                        </div>
+                                        @if ($interview->notes)
+                                            <div class="flex items-start gap-2 sm:justify-end min-w-0">
+                                                <span class="text-slate-400 font-semibold shrink-0">Notes:</span>
+                                                <span class="text-slate-700 font-medium italic truncate max-w-xs" title="{{ $interview->notes }}">“{{ $interview->notes }}”</span>
+                                            </div>
+                                        @endif
+                                    </div>
+
+                                    @if ($interview->status === 'reschedule_requested' && $interview->reschedule_reason)
+                                        <div class="mt-2.5 p-2 rounded-xl bg-amber-100/70 border border-amber-200/90 text-[11px] text-amber-900">
+                                            <strong class="font-bold">Your reschedule note:</strong> {{ $interview->reschedule_reason }}
+                                        </div>
+                                    @endif
+                                </div>
+                            @endif
 
                             {{-- ── Bottom Row: Recruiter Feedback + Actions ── --}}
                             <div class="flex items-end justify-between gap-3 pt-3.5 border-t border-slate-100 flex-wrap sm:flex-nowrap">
@@ -362,6 +467,88 @@
                             <i class="fa-solid fa-arrow-rotate-left text-xs" x-show="!submitting"></i>
                             <span x-text="submitting ? 'Withdrawing...' : 'Yes, Withdraw Application'"></span>
                         </button>
+                    </form>
+
+                </div>
+            </div>
+        </div>
+
+        {{-- ─── Feature 2.4: Interview Reschedule Modal (Alpine.js) ─── --}}
+        <div x-show="rescheduleModalOpen"
+             x-cloak
+             class="fixed inset-0 z-50 overflow-y-auto"
+             aria-labelledby="modal-reschedule-title" role="dialog" aria-modal="true"
+             style="display: none;">
+            
+            {{-- Backdrop --}}
+            <div x-show="rescheduleModalOpen"
+                 x-transition:enter="ease-out duration-200"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 x-transition:leave="ease-in duration-150"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0"
+                 class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+                 @click="rescheduleModalOpen = false"></div>
+
+            <div class="flex min-h-full items-end sm:items-center justify-center p-4 text-center">
+                <div x-show="rescheduleModalOpen"
+                     x-transition:enter="ease-out duration-200"
+                     x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                     x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+                     x-transition:leave="ease-in duration-150"
+                     x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+                     x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                     @click.stop
+                     class="relative transform overflow-hidden rounded-3xl bg-white text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-lg p-6 border border-slate-100">
+
+                    <div class="flex items-start gap-4">
+                        <div class="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+                            <i class="fa-solid fa-clock-rotate-left text-lg"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <h3 class="text-base font-black text-slate-900 tracking-tight" id="modal-reschedule-title">
+                                Request Interview Reschedule
+                            </h3>
+                            <p class="text-xs text-slate-600 mt-1 leading-relaxed">
+                                Let <strong class="text-slate-900" x-text="rescheduleCompanyName"></strong> know why you cannot make the scheduled time for <strong class="text-slate-900" x-text="rescheduleJobTitle"></strong> and suggest alternative times you are available.
+                            </p>
+                        </div>
+                    </div>
+
+                    <form :action="rescheduleUrl" method="POST" @submit="rescheduleSubmitting = true" class="mt-5 space-y-4">
+                        @csrf
+                        <div>
+                            <label for="reschedule-reason" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                                Reason & Proposed Availability <span class="text-rose-500">*</span>
+                            </label>
+                            <textarea id="reschedule-reason"
+                                      name="reschedule_reason" 
+                                      x-model="rescheduleReason"
+                                      required
+                                      rows="4"
+                                      minlength="10"
+                                      maxlength="1000"
+                                      placeholder="e.g. I have a university final exam scheduled during this time slot. Would it be possible to reschedule to Friday afternoon or next Monday after 2:00 PM?"
+                                      class="w-full px-4 py-3 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-slate-900 transition-all placeholder-slate-400 resize-none"></textarea>
+                            <p class="text-[11px] text-slate-400 mt-1">Please provide a polite explanation and alternative dates/times.</p>
+                        </div>
+
+                        <div class="pt-2 flex items-center justify-end gap-2.5">
+                            <button type="button"
+                                    @click="rescheduleModalOpen = false"
+                                    :disabled="rescheduleSubmitting"
+                                    class="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer">
+                                Cancel
+                            </button>
+                            <button type="submit"
+                                    :disabled="rescheduleSubmitting || rescheduleReason.trim().length < 10"
+                                    class="px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-xs inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer">
+                                <i class="fa-solid fa-spinner animate-spin text-xs" x-show="rescheduleSubmitting" style="display: none;"></i>
+                                <i class="fa-solid fa-paper-plane text-xs" x-show="!rescheduleSubmitting"></i>
+                                <span x-text="rescheduleSubmitting ? 'Sending Request...' : 'Send Reschedule Request'"></span>
+                            </button>
+                        </div>
                     </form>
 
                 </div>

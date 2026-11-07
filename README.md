@@ -75,7 +75,28 @@ In addition to its responsive web portal, the system exposes a secure **Android 
   - **Interactive Recruitment Pipeline Board:** Proportional progress bars breakdown across *Pending Review*, *Shortlisted*, *Interviewing*, *Accepted / Placed*, and *Not Selected*.
   - **Quick Applicant Review Drawer:** Instant access to the latest 10 applicants with direct links to student resumes and status modification.
 - **Internship Vacancy Publishing:** Create and edit job postings detailing descriptions, requirements, stipend disclosure, available positions, and application deadlines (held in a moderation queue for university approval).
-- **Applicant Review Pipeline Board:** Multi-stage applicant tracking board to inspect student candidates, read cover letters, view PDF resumes in-browser, and advance statuses (*Applied* ➔ *Under Review* ➔ *Shortlisted* ➔ *Interviewed* ➔ *Accepted* / *Rejected*).
+- **Interactive Kanban Pipeline Board View (Feature 2.1):**
+  - **Dynamic Stage Columns:** 6-column workflow (*Applied* ➔ *Under Review* ➔ *Shortlisted* ➔ *Interviewed* ➔ *Accepted* ➔ *Rejected*) with stage color badges, dynamic candidate counts, and empty drop-zone indicators.
+  - **Native HTML5 Drag-and-Drop:** Intuitive card dragging across hiring columns triggering asynchronous `PATCH /company/applicants/{id}` status updates via Alpine.js and `fetch()`.
+  - **Optimistic UI with Automatic Rollback:** Instant visual card migration on drop with automated error rollback and floating toast alerts upon server validation or network exceptions.
+  - **Dual Mode Switcher:** Seamless one-click toggling between **Kanban Board** (`[ 📋 Kanban Board ]`) and the paginated **Table List** (`[ ☰ Table List ]`) with client-side preference persistence in `localStorage`.
+  - **Rich Candidate Cards:** Shows candidate photo/initials, degree major, GPA badge, skills tags, cover letter preview, recruiter notes, quick-action resume preview/download buttons, live chat link, and modal editor.
+  - **Withdrawn Application Protection:** Dedicated notification banner and non-draggable locked states for withdrawn candidates preventing improper status modification.
+- **📑 Post Duplicate / Clone Feature (Feature 2.2):** One-click vacancy cloning directly from the listings table (`POST /company/posts/{id}/duplicate` & `POST /api/company/posts/{id}/duplicate`). Duplicates the full position schema (category, description, requirements, stipend, slots, duration) as a `draft` with automatic `(Copy)` title suffix and redirects immediately into the edit modal for quick adjustments.
+- **📝 Post Status — Draft Mode & Review Workflow (Feature 2.3):**
+  - **Dual Creation Actions:** Modal offers explicit **"Save as Draft"** (`action=draft`) and **"Submit for Review"** (`action=submit`) buttons.
+  - **Isolated Draft State:** Draft listings remain completely private to the host company, bypassing the administrator moderation queue and student searches.
+  - **One-Click Draft Submission:** Dedicated green **"Submit"** quick-action in the listings table (`POST /company/posts/{id}/submit` & `POST /api/company/posts/{id}/submit`) and edit modal allows instant transition from `draft` to `pending_approval` with automated administrator notifications.
+- **Applicant Review Pipeline Board (Feature 2.1):** Multi-stage column-based Kanban tracking board with HTML5 drag-and-drop optimistic status updates, dual-view toggle (*Kanban Board* vs *Table List*), and state persistence.
+- **🗓️ Candidate Interview Scheduling (Feature 2.4):**
+  - **Company Scheduling Modal:** Recruiter selects meeting format (**Online Video** with Google Meet/Zoom link or **In-Person** office location), local date/time, and preparation instructions.
+  - **Dual Notification Dispatch:** Triggers in-app notification, real-time WebSocket broadcast, and formatted notification emails (`MailMessage`).
+  - **Student Response Workflow:** Student can **"Confirm Attendance"** or **"Request Reschedule"** with explanation.
+  - **Multi-Channel Message Visibility:** Reschedule reasons are prominently displayed on Kanban cards, in Table rows, inside the Schedule modal, in notifications, and automatically injected into the direct Chat conversation thread.
+- **📊 Recruitment Intelligence & Analytics Engine (Feature 2.5):**
+  - **Applications per Job Listing (Bar Chart):** Interactive Chart.js bar chart comparing student application volume across the company's **Top 5 Vacancy Posts** with custom tooltips, integer Cartesian axes, and clean empty states.
+  - **Candidacy Outcomes Breakdown (Donut Chart):** Interactive donut chart showing proportional distribution across hiring pipeline stages (*Applied*, *Shortlisted / Interview*, *Accepted*, *Rejected*) with center KPI metric (**Total Applicants** + **Placement Rate % Placed**) and 2x2 categorical breakdown legend.
+  - **Android REST API Analytics Payload:** The `/api/company/dashboard` endpoint provides structured `analytics.top_posts` and `analytics.status_distribution` payloads for native mobile charting.
 - **⚡ Real-Time Candidate Chat (WebSockets):** Seamless live messaging channel with applicants featuring instant message dispatch, live incoming chat bubbles, and auto-updated unread counts.
 - **Company Security & Password Management:** Dedicated "Security & Password" tab for recruiter password changes with authentication validation and visibility toggles.
 - **⚡ Instant In-App Alerts:** Real-time WebSocket notifications when students submit applications or when administrators verify corporate accounts and approve job listings.
@@ -181,9 +202,14 @@ All API endpoints return a predictable, strongly-typed JSON envelope:
 | **`GET`** | `/api/company/posts/{id}` | `role:company` | Inspect vacancy details |
 | **`PUT`** | `/api/company/posts/{id}` | `role:company` | Update existing internship listing |
 | **`DELETE`**| `/api/company/posts/{id}` | `role:company` | Delete internship listing |
+| **`POST`** | `/api/company/posts/{id}/duplicate` | `role:company` | Duplicate/clone existing vacancy as a new draft listing |
+| **`POST`** | `/api/company/posts/{id}/submit` | `role:company` | Submit a private draft listing for university admin review |
 | **`GET`** | `/api/company/applicants` | `role:company` | List candidates applying to company vacancies |
 | **`GET`** | `/api/company/applicants/{id}` | `role:company` | Detailed candidate review (cover letter, academic profile) |
 | **`PUT`** | `/api/company/applicants/{id}/status` | `role:company` | Advance candidate status (*under_review*, *shortlisted*, *accepted*, etc.) |
+| **`POST`** | `/api/company/applicants/{id}/interview` | `role:company` | Schedule online video or in-person interview session for candidate |
+| **`POST`** | `/api/student/interviews/{id}/confirm` | `role:student` | Student confirms interview attendance |
+| **`POST`** | `/api/student/interviews/{id}/reschedule` | `role:student` | Student requests interview reschedule with conflict explanation |
 | **`GET`** | `/api/conversations` | `auth:sanctum` | List all active direct messaging conversations |
 | **`GET`** | `/api/conversations/{id}` | `auth:sanctum` | Fetch message history within a conversation |
 | **`POST`** | `/api/conversations/{id}/messages` | `auth:sanctum` | Send an instant message within a conversation |
@@ -594,9 +620,14 @@ php artisan test
 - **`PostStatusSecurityTest` (4 tests):** Strict job post status authorization (companies cannot self-approve pending posts or manipulate post states).
 - **`ResumeManagementTest` (4 tests):** Student profile PDF resume upload, browser preview, file deletion, and employer applicant resume preview.
 - **`UserManagementTest` (8 tests):** Admin user index, Chart.js analytics dashboard metrics, student creation, company creation, user updates, soft-deletes, and RBAC guard tests.
+- **`CompanyKanbanTest` (6 tests):** Company applicant review board with Kanban data preload, drag-and-drop AJAX PATCH stage transition, standard form PUT updates, cross-company applicant authorization guards, student access restrictions (302 web redirect / 403 JSON), and immutability of withdrawn candidate applications.
+- **`CompanyPostDuplicateTest` (5 tests):** Web post duplication with title copy and draft status, auto-redirect to edit modal, cross-company authorization rejection (403), student access rejection, mobile REST API duplicate endpoint, and unauthorized API clone rejection (404).
+- **`CompanyPostDraftModeTest` (6 tests):** Saving posts as private draft without admin notification, submitting directly for review with admin notification dispatch, one-click draft submission from listings table, isolation of drafts from admin moderation queues, invisibility of drafts to student candidate browsing, and mobile REST API draft management.
+- **`CompanyInterviewSchedulingTest` (8 tests):** Company scheduling online video / in-person interviews via web modal, auto-advancing status to interviewed, student notification dispatch (mail + DB + broadcast), student attendance confirmation via web, student reschedule request with conflict reason, cross-company scheduling authorization security (403), isolation of withdrawn candidate applications, and full end-to-end scheduling/confirm/reschedule workflow via Android REST API.
+- **`CompanyDashboardAnalyticsTest` (5 tests):** Company dashboard chart rendering (Bar chart of top 5 posts & Donut chart of applicant status breakdown), empty state handling when no candidacies exist, strict isolation from other companies' post analytics, unauthorized access restrictions, and mobile Android REST API analytics payload verification.
 - **`ExampleTest` (1 test):** Application baseline and unit integrity.
 
-**Result:** `56 passed (250 assertions)` (100% green suite)
+**Result:** `86 passed (424 assertions)` (100% green suite)
 
 ---
 
@@ -722,7 +753,7 @@ npm run build      # (or 'npm run dev' for development)
 
 | Task / Problem | Command / Solution |
 | :--- | :--- |
-| **Run Automated Tests** | `php artisan test` *(49 tests, 210 assertions)* |
+| **Run Automated Tests** | `php artisan test` *(73 tests, 325 assertions)* |
 | **Clear All Application Caches** | `php artisan optimize:clear` |
 | **Recompile Assets for Production** | `npm run build` |
 | **Fix Broken Resumes or Logos** | `php artisan storage:link` *(Also supported via `/storage/{path}` route)* |

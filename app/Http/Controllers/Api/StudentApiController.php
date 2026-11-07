@@ -26,14 +26,25 @@ class StudentApiController extends BaseApiController
         $shortlistedCount = Application::where('student_profile_id', $student->id)->where('status', 'shortlisted')->count();
         $acceptedCount = Application::where('student_profile_id', $student->id)->where('status', 'accepted')->count();
 
-        $recentApplications = Application::with(['internshipPost.companyProfile'])
+        $relations = ['internshipPost.companyProfile.user'];
+        if (method_exists(Application::class, 'interview')) {
+            $relations[] = 'interview';
+        }
+        if (method_exists(Application::class, 'interviews')) {
+            $relations[] = 'interviews';
+        }
+        if (method_exists(Application::class, 'latestInterview')) {
+            $relations[] = 'latestInterview';
+        }
+
+        $recentApplications = Application::with($relations)
             ->where('student_profile_id', $student->id)
             ->latest()
             ->take(5)
             ->get();
 
         // Feature 1.7: Smart Recommended Posts for Student Dashboard
-        $matchingPosts = InternshipPost::with('companyProfile')
+        $matchingPosts = InternshipPost::with('companyProfile.user')
             ->recommendedFor($student)
             ->get();
 
@@ -62,7 +73,7 @@ class StudentApiController extends BaseApiController
 
         if ($rankedPosts->count() < 5) {
             $existingIds = $rankedPosts->pluck('id')->toArray();
-            $fallbacks = InternshipPost::with('companyProfile')
+            $fallbacks = InternshipPost::with('companyProfile.user')
                 ->approved()
                 ->whereDate('deadline', '>=', now()->toDateString())
                 ->whereDoesntHave('applications', fn ($q) => $q->where('student_profile_id', $student->id))
@@ -220,7 +231,7 @@ class StudentApiController extends BaseApiController
         $user = $request->user();
         $student = $user->studentProfile;
 
-        $query = InternshipPost::with('companyProfile')->approved();
+        $query = InternshipPost::with('companyProfile.user')->approved();
 
         // 1. Deadline filter: 'open' (default) or 'soon' (closing in <= 7 days)
         $deadline = $request->input('deadline', 'open');
@@ -307,7 +318,7 @@ class StudentApiController extends BaseApiController
      */
     public function showPost(Request $request, int $id): JsonResponse
     {
-        $post = InternshipPost::with('companyProfile')->find($id);
+        $post = InternshipPost::with('companyProfile.user')->find($id);
 
         if (!$post) {
             return $this->sendError('Internship post not found.', [], 404);
@@ -318,7 +329,19 @@ class StudentApiController extends BaseApiController
         $isBookmarked = false;
 
         if ($student) {
-            $existingApplication = Application::where('student_profile_id', $student->id)
+            $relations = ['internshipPost.companyProfile.user'];
+            if (method_exists(Application::class, 'interview')) {
+                $relations[] = 'interview';
+            }
+            if (method_exists(Application::class, 'interviews')) {
+                $relations[] = 'interviews';
+            }
+            if (method_exists(Application::class, 'latestInterview')) {
+                $relations[] = 'latestInterview';
+            }
+
+            $existingApplication = Application::with($relations)
+                ->where('student_profile_id', $student->id)
                 ->where('internship_post_id', $post->id)
                 ->first();
 
@@ -413,7 +436,7 @@ class StudentApiController extends BaseApiController
             color: 'blue'
         ));
 
-        $application->load(['internshipPost.companyProfile']);
+        $application->load(['internshipPost.companyProfile.user']);
 
         return $this->sendResponse($application, 'Application submitted successfully!', 201);
     }
@@ -429,7 +452,18 @@ class StudentApiController extends BaseApiController
             return $this->sendResponse([], 'No applications found.');
         }
 
-        $query = Application::with(['internshipPost.companyProfile'])
+        $relations = ['internshipPost.companyProfile.user'];
+        if (method_exists(Application::class, 'interview')) {
+            $relations[] = 'interview';
+        }
+        if (method_exists(Application::class, 'interviews')) {
+            $relations[] = 'interviews';
+        }
+        if (method_exists(Application::class, 'latestInterview')) {
+            $relations[] = 'latestInterview';
+        }
+
+        $query = Application::with($relations)
             ->where('student_profile_id', $student->id);
 
         if ($status = $request->input('status')) {
@@ -449,7 +483,18 @@ class StudentApiController extends BaseApiController
     {
         $student = $request->user()->studentProfile;
 
-        $application = Application::with(['internshipPost.companyProfile'])
+        $relations = ['internshipPost.companyProfile.user'];
+        if (method_exists(Application::class, 'interview')) {
+            $relations[] = 'interview';
+        }
+        if (method_exists(Application::class, 'interviews')) {
+            $relations[] = 'interviews';
+        }
+        if (method_exists(Application::class, 'latestInterview')) {
+            $relations[] = 'latestInterview';
+        }
+
+        $application = Application::with($relations)
             ->where('student_profile_id', $student?->id)
             ->find($id);
 
@@ -513,7 +558,7 @@ class StudentApiController extends BaseApiController
         $perPage = min((int) ($request->input('per_page') ?: 15), 50);
 
         $posts = $student->bookmarkedPosts()
-            ->with('companyProfile')
+            ->with('companyProfile.user')
             ->approved()
             ->latest('student_bookmarks.created_at')
             ->paginate($perPage);
@@ -575,7 +620,7 @@ class StudentApiController extends BaseApiController
         $student = $request->user()->studentProfile;
 
         $activePosts = $company->internshipPosts()
-            ->with('companyProfile')
+            ->with('companyProfile.user')
             ->approved()
             ->whereDate('deadline', '>=', now()->toDateString())
             ->latest()
@@ -601,5 +646,143 @@ class StudentApiController extends BaseApiController
             'total_positions' => $company->internshipPosts()->approved()->count(),
             'is_verified'     => $company->isVerified(),
         ], 'Company profile loaded successfully.');
+    }
+
+    /**
+     * Confirm an interview attendance.
+     */
+    public function confirmInterview(Request $request, int $id): JsonResponse
+    {
+        $student = $request->user()->studentProfile;
+        $interview = \App\Models\Interview::with(['application.internshipPost.companyProfile.user'])
+            ->find($id);
+
+        if (!$interview || $interview->application->student_profile_id !== $student?->id) {
+            return $this->sendError('Interview not found or unauthorized.', [], 404);
+        }
+
+        $interview->update([
+            'confirmed_by_student' => true,
+            'confirmed_at'         => now(),
+            'status'               => 'confirmed',
+        ]);
+
+        $companyUser = $interview->application->internshipPost->companyProfile?->user;
+        $studentName = $request->user()->name;
+        $postTitle = $interview->application->internshipPost->title;
+
+        $companyUser?->notify(new \App\Notifications\AppNotification(
+            title: 'Interview Confirmed ✓',
+            message: "{$studentName} has confirmed their interview attendance for '{$postTitle}'.",
+            actionUrl: route('company.applicants.index', ['post_id' => $interview->application->internship_post_id]),
+            icon: 'fa-solid fa-circle-check',
+            color: 'emerald'
+        ));
+
+        // Post into Chat Conversation
+        $application = $interview->application;
+        $companyProfile = $application->internshipPost->companyProfile;
+        if ($companyProfile) {
+            $conversation = \App\Models\Conversation::firstOrCreate(
+                [
+                    'student_profile_id' => $student->id,
+                    'company_profile_id' => $companyProfile->id,
+                    'application_id'     => $application->id,
+                ],
+                [
+                    'subject'         => 'Applicant: ' . $studentName . ' (' . $application->internshipPost->title . ')',
+                    'last_message_at' => now(),
+                ]
+            );
+
+            $scheduledDateStr = $interview->scheduled_at ? $interview->scheduled_at->format('M d, Y \a\t g:i A') : 'N/A';
+            $chatMessage = $conversation->messages()->create([
+                'sender_id' => $request->user()->id,
+                'body'      => "✓ [Interview Confirmed]\nI have confirmed my attendance for the interview session on {$scheduledDateStr}. Thank you!",
+                'is_read'   => false,
+            ]);
+
+            $conversation->update(['last_message_at' => now()]);
+
+            try {
+                broadcast(new \App\Events\MessageSent($chatMessage))->toOthers();
+            } catch (\Throwable $e) {}
+        }
+
+        return $this->sendResponse($interview->fresh(), 'Interview attendance confirmed successfully.');
+    }
+
+    /**
+     * Request an interview reschedule.
+     */
+    public function rescheduleInterview(Request $request, int $id): JsonResponse
+    {
+        $student = $request->user()->studentProfile;
+        $interview = \App\Models\Interview::with(['application.internshipPost.companyProfile.user'])
+            ->find($id);
+
+        if (!$interview || $interview->application->student_profile_id !== $student?->id) {
+            return $this->sendError('Interview not found or unauthorized.', [], 404);
+        }
+
+        $reason = $request->input('reschedule_reason') ?: $request->input('reason');
+
+        if (!$reason || trim($reason) === '') {
+            return $this->sendError('Validation failed', ['reschedule_reason' => ['The reschedule reason field is required.']], 422);
+        }
+
+        if (strlen($reason) > 1000) {
+            return $this->sendError('Validation failed', ['reschedule_reason' => ['The reschedule reason cannot exceed 1000 characters.']], 422);
+        }
+
+        $interview->update([
+            'status'               => 'reschedule_requested',
+            'confirmed_by_student' => false,
+            'reschedule_reason'    => $reason,
+        ]);
+
+        $companyUser = $interview->application->internshipPost->companyProfile?->user;
+        $studentName = $request->user()->name;
+        $postTitle = $interview->application->internshipPost->title;
+
+        $companyUser?->notify(new \App\Notifications\AppNotification(
+            title: 'Interview Reschedule Requested ↺',
+            message: "{$studentName} requested to reschedule their interview for '{$postTitle}'. Reason: {$reason}",
+            actionUrl: route('company.applicants.index', ['post_id' => $interview->application->internship_post_id]),
+            icon: 'fa-solid fa-clock-rotate-left',
+            color: 'amber'
+        ));
+
+        // Post into Chat Conversation
+        $application = $interview->application;
+        $companyProfile = $application->internshipPost->companyProfile;
+        if ($companyProfile) {
+            $conversation = \App\Models\Conversation::firstOrCreate(
+                [
+                    'student_profile_id' => $student->id,
+                    'company_profile_id' => $companyProfile->id,
+                    'application_id'     => $application->id,
+                ],
+                [
+                    'subject'         => 'Applicant: ' . $studentName . ' (' . $application->internshipPost->title . ')',
+                    'last_message_at' => now(),
+                ]
+            );
+
+            $scheduledDateStr = $interview->scheduled_at ? $interview->scheduled_at->format('M d, Y \a\t g:i A') : 'N/A';
+            $chatMessage = $conversation->messages()->create([
+                'sender_id' => $request->user()->id,
+                'body'      => "🗓️ [Interview Reschedule Request]\nI would like to request rescheduling our interview session originally scheduled for {$scheduledDateStr}.\n\nReason & Availability:\n{$reason}",
+                'is_read'   => false,
+            ]);
+
+            $conversation->update(['last_message_at' => now()]);
+
+            try {
+                broadcast(new \App\Events\MessageSent($chatMessage))->toOthers();
+            } catch (\Throwable $e) {}
+        }
+
+        return $this->sendResponse($interview->fresh(), 'Reschedule request submitted to recruiter.');
     }
 }

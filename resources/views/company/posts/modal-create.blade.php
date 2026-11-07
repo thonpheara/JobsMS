@@ -304,19 +304,28 @@
                 {{-- Modal Footer Actions (Inside Form) --}}
                 <div class="pt-5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <p class="text-[11px] text-slate-500 flex items-center gap-1.5">
-                        <i class="fa-solid fa-shield-halved text-emerald-600"></i>
-                        <span>University admin review required before listing is made public.</span>
+                        <i class="fa-solid fa-circle-info text-emerald-600"></i>
+                        <span>Save as a private draft or submit immediately for university moderation.</span>
                     </p>
-                    <div class="flex items-center justify-end gap-3 shrink-0">
+                    <div class="flex items-center justify-end gap-2.5 shrink-0">
                         <button type="button" 
                                 @click="createModalOpen = false"
-                                class="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-colors cursor-pointer">
+                                class="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-colors cursor-pointer">
                             Cancel
                         </button>
                         <button type="submit"
-                                class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-emerald-600/25 transition-all flex items-center gap-2 cursor-pointer">
+                                name="action"
+                                value="draft"
+                                class="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs border border-slate-300/80 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs">
+                            <i class="fa-solid fa-file-pen text-xs text-slate-500"></i>
+                            <span>Save as Draft</span>
+                        </button>
+                        <button type="submit"
+                                name="action"
+                                value="submit"
+                                class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-emerald-600/25 transition-all flex items-center gap-2 cursor-pointer">
                             <i class="fa-solid fa-paper-plane text-xs"></i>
-                            <span>Submit for Approval</span>
+                            <span>Submit for Review</span>
                         </button>
                     </div>
                 </div>

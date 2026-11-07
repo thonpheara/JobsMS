@@ -6,12 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\Application;
 use App\Models\InternshipPost;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class CompanyDashboardController extends Controller
 {
     /**
-     * Display company portal dashboard with key applicant metrics.
+     * Display company portal dashboard with key applicant metrics & analytics charts.
      */
     public function index(): View
     {
@@ -32,6 +33,7 @@ class CompanyDashboardController extends Controller
         $interviewedCount = (int) ($statusCounts['interviewed'] ?? 0);
         $acceptedCount    = (int) ($statusCounts['accepted'] ?? 0);
         $rejectedCount    = (int) ($statusCounts['rejected'] ?? 0);
+        $withdrawnCount   = (int) ($statusCounts['withdrawn'] ?? 0);
 
         $totalApplicants = $statusCounts->sum();
 
@@ -43,6 +45,50 @@ class CompanyDashboardController extends Controller
             'pending_review'   => $pendingCount,
             'interviewed'      => $interviewedCount + $shortlistedCount,
             'accepted'         => $acceptedCount,
+        ];
+
+        // 1. Feature 2.5: Bar Chart — Applications received per post (Top 5 posts)
+        $topPosts = InternshipPost::where('company_profile_id', $company?->id)
+            ->withCount('applications')
+            ->orderByDesc('applications_count')
+            ->take(5)
+            ->get();
+
+        $topPostsChart = [
+            'labels'     => $topPosts->map(fn($p) => Str::limit($p->title, 20))->values()->toArray(),
+            'fullTitles' => $topPosts->map(fn($p) => $p->title)->values()->toArray(),
+            'data'       => $topPosts->map(fn($p) => (int) $p->applications_count)->values()->toArray(),
+            'ids'        => $topPosts->map(fn($p) => $p->id)->values()->toArray(),
+            'total'      => $topPosts->sum('applications_count'),
+            'hasData'    => $topPosts->contains(fn($p) => $p->applications_count > 0),
+        ];
+
+        // 2. Feature 2.5: Donut Chart — Applicant Status Breakdown (applied / shortlisted / accepted / rejected)
+        $appliedTotal     = $pendingCount + $underReviewCount;
+        $shortlistedTotal = $shortlistedCount + $interviewedCount;
+        $acceptedTotal    = $acceptedCount;
+        $rejectedTotal    = $rejectedCount + $withdrawnCount;
+        $totalOutcomes    = $appliedTotal + $shortlistedTotal + $acceptedTotal + $rejectedTotal;
+        $placementRate    = $totalOutcomes > 0 ? round(($acceptedTotal / $totalOutcomes) * 100, 1) : 0;
+
+        $donutData = [
+            'labels' => ['Applied', 'Shortlisted', 'Accepted', 'Rejected'],
+            'data'   => [$appliedTotal, $shortlistedTotal, $acceptedTotal, $rejectedTotal],
+            'colors' => ['#0EA5E9', '#6366F1', '#10B981', '#F43F5E'],
+            'total'  => $totalOutcomes,
+            'placementRate' => $placementRate,
+            'counts' => [
+                'applied'     => $appliedTotal,
+                'shortlisted' => $shortlistedTotal,
+                'accepted'    => $acceptedTotal,
+                'rejected'    => $rejectedTotal,
+            ],
+            'percentages' => [
+                'applied'     => $totalOutcomes > 0 ? round(($appliedTotal / $totalOutcomes) * 100) : 0,
+                'shortlisted' => $totalOutcomes > 0 ? round(($shortlistedTotal / $totalOutcomes) * 100) : 0,
+                'accepted'    => $totalOutcomes > 0 ? round(($acceptedTotal / $totalOutcomes) * 100) : 0,
+                'rejected'    => $totalOutcomes > 0 ? round(($rejectedTotal / $totalOutcomes) * 100) : 0,
+            ],
         ];
 
         // Recruitment Pipeline Breakdown
@@ -101,7 +147,7 @@ class CompanyDashboardController extends Controller
             ->take(10)
             ->get();
 
-        return view('company.dashboard', compact('company', 'stats', 'pipeline', 'recentApplicants'));
+        return view('company.dashboard', compact('company', 'stats', 'topPostsChart', 'donutData', 'pipeline', 'recentApplicants'));
     }
 }
 

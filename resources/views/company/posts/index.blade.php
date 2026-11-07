@@ -126,6 +126,30 @@
                                     </td>
                                     <td class="py-2.5 px-6 text-right">
                                         <div class="inline-flex items-center justify-end gap-1.5">
+                                            {{-- Quick Submit Draft for Approval Button --}}
+                                            @if ($post->status === 'draft')
+                                                <form action="{{ route('company.posts.submit', $post) }}" method="POST" class="inline-flex m-0">
+                                                    @csrf
+                                                    <button type="submit" 
+                                                            class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200 text-xs font-bold transition-all cursor-pointer shadow-2xs"
+                                                            title="Submit this draft for university admin moderation">
+                                                        <i class="fa-solid fa-paper-plane text-[10px] text-emerald-600"></i>
+                                                        <span>Submit</span>
+                                                    </button>
+                                                </form>
+                                            @endif
+
+                                            {{-- Duplicate / Clone Post Button --}}
+                                            <form action="{{ route('company.posts.duplicate', $post) }}" method="POST" class="inline-flex m-0">
+                                                @csrf
+                                                <button type="submit" 
+                                                        class="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer border border-slate-200/60"
+                                                        title="Duplicate Listing as Draft">
+                                                    <i class="fa-solid fa-copy text-xs"></i>
+                                                </button>
+                                            </form>
+
+                                            {{-- Edit Post Button --}}
                                             <button type="button" 
                                                     @click="openEditModal({
                                                         id: {{ $post->id }},
@@ -142,17 +166,19 @@
                                                         requirements: @js($post->requirements ?? ''),
                                                         updateUrl: @js(route('company.posts.update', $post))
                                                     })"
-                                                    class="w-8 h-8 flex items-center justify-center text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
+                                                    class="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer border border-slate-200/60"
                                                     title="Edit Post">
-                                                <i class="fa-solid fa-pen-to-square w-4 h-4"></i>
+                                                <i class="fa-solid fa-pen-to-square text-xs"></i>
                                             </button>
+
+                                            {{-- Delete / Archive Post Button --}}
                                             <form action="{{ route('company.posts.destroy', $post) }}" method="POST" class="inline-flex m-0" onsubmit="return confirm('Archive this internship post?');">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" 
-                                                        class="w-8 h-8 flex items-center justify-center text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                                        class="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer border border-slate-200/60"
                                                         title="Archive Post">
-                                                    <i class="fa-solid fa-trash-can w-4 h-4"></i>
+                                                    <i class="fa-solid fa-trash-can text-xs"></i>
                                                 </button>
                                             </form>
                                         </div>

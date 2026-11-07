@@ -58,28 +58,35 @@ class InternshipPostController extends Controller
             'deadline'        => ['required', 'date', 'after:today'],
         ]);
 
+        $isDraft = $request->input('action') === 'draft' || $request->input('status') === 'draft';
+
         $validated['company_profile_id'] = $company->id;
         $validated['slug'] = Str::slug($validated['title']) . '-' . rand(1000, 9999);
-        $validated['status'] = 'pending_approval'; // Admin moderates new postings
+        $validated['status'] = $isDraft ? 'draft' : 'pending_approval';
         $validated['is_stipend_disclosed'] = !empty($validated['stipend']);
         $validated['type'] = $validated['type'] ?? 'on_site';
 
         $post = InternshipPost::create($validated);
 
-        // Notify admins about new job post pending approval
-        $admins = \App\Models\User::where('role', 'admin')->get();
-        foreach ($admins as $admin) {
-            $admin->notify(new \App\Notifications\AppNotification(
-                title: 'New Job Post Pending Approval',
-                message: "{$company->company_name} submitted '{$post->title}' for review.",
-                actionUrl: route('admin.approvals.index', ['status' => 'pending_approval']),
-                icon: 'fa-solid fa-square-check',
-                color: 'amber'
-            ));
+        if (!$isDraft) {
+            // Notify admins about new job post pending approval
+            $admins = \App\Models\User::where('role', 'admin')->get();
+            foreach ($admins as $admin) {
+                $admin->notify(new \App\Notifications\AppNotification(
+                    title: 'New Job Post Pending Approval',
+                    message: "{$company->company_name} submitted '{$post->title}' for review.",
+                    actionUrl: route('admin.approvals.index', ['status' => 'pending_approval']),
+                    icon: 'fa-solid fa-square-check',
+                    color: 'amber'
+                ));
+            }
+
+            return redirect()->route('company.posts.index')
+                ->with('success', 'Internship post submitted for admin approval.');
         }
 
         return redirect()->route('company.posts.index')
-            ->with('success', 'Internship post submitted for admin approval.');
+            ->with('success', "Internship post saved as draft: '{$post->title}'. Visible only to your team.");
     }
 
     /**
@@ -161,6 +168,67 @@ class InternshipPostController extends Controller
 
         return redirect()->route('company.posts.index')
             ->with('success', 'Internship post removed.');
+    }
+
+    /**
+     * Submit a draft post for administrator approval.
+     */
+    public function submitForApproval(InternshipPost $post): RedirectResponse
+    {
+        $this->authorizeCompanyPost($post);
+
+        if ($post->status !== 'draft') {
+            return back()->with('info', 'This post has already been submitted or processed.');
+        }
+
+        $post->update([
+            'status' => 'pending_approval',
+        ]);
+
+        $company = Auth::user()->companyProfile;
+        $admins = \App\Models\User::where('role', 'admin')->get();
+        foreach ($admins as $admin) {
+            $admin->notify(new \App\Notifications\AppNotification(
+                title: 'New Job Post Pending Approval',
+                message: "{$company->company_name} submitted '{$post->title}' for review.",
+                actionUrl: route('admin.approvals.index', ['status' => 'pending_approval']),
+                icon: 'fa-solid fa-square-check',
+                color: 'amber'
+            ));
+        }
+
+        return redirect()->route('company.posts.index')
+            ->with('success', "Internship post '{$post->title}' submitted for admin approval.");
+    }
+
+    /**
+     * Duplicate/clone an existing internship post as draft.
+     */
+    public function duplicate(InternshipPost $post): RedirectResponse
+    {
+        $this->authorizeCompanyPost($post);
+
+        $cloned = $post->replicate([
+            'applications_count',
+            'created_at',
+            'updated_at',
+            'deleted_at',
+            'rejection_reason',
+        ]);
+
+        $cloned->title = $post->title . ' (Copy)';
+        $cloned->slug = Str::slug($cloned->title) . '-' . rand(1000, 9999);
+        $cloned->status = 'draft';
+
+        // Ensure a valid future deadline (at least 30 days ahead if past or missing)
+        if (empty($cloned->deadline) || \Carbon\Carbon::parse($cloned->deadline)->isPast()) {
+            $cloned->deadline = now()->addDays(30)->toDateString();
+        }
+
+        $cloned->save();
+
+        return redirect()->route('company.posts.index', ['edit' => $cloned->id])
+            ->with('success', "Internship post duplicated as draft: '{$cloned->title}'. You can now adjust details and submit.");
     }
 
     protected function authorizeCompanyPost(InternshipPost $post): void

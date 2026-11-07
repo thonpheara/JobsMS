@@ -15,16 +15,15 @@ class PostApprovalController extends Controller
      */
     public function index(Request $request): View
     {
-        $query = InternshipPost::with('companyProfile');
+        $allowedStatuses = ['pending_approval', 'approved', 'rejected'];
+        $status = $request->input('status');
 
-        if ($status = $request->input('status')) {
-            $query->where('status', $status);
-        } else {
-            // Default to pending_approval if not specified
-            $query->where('status', 'pending_approval');
-        }
+        $selectedStatus = in_array($status, $allowedStatuses, true) ? $status : 'pending_approval';
 
-        $posts = $query->latest()->get();
+        $posts = InternshipPost::with('companyProfile')
+            ->where('status', $selectedStatus)
+            ->latest()
+            ->get();
 
         return view('admin.approvals.index', compact('posts'));
     }

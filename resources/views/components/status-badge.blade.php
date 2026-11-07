@@ -14,6 +14,16 @@
             'dot' => 'bg-amber-500',
             'label' => ucfirst(str_replace('_', ' ', $normalized)),
         ],
+        'draft' => [
+            'classes' => 'bg-slate-100 text-slate-700 border-slate-300 ring-slate-500/10',
+            'dot' => 'bg-slate-400',
+            'label' => 'Draft',
+        ],
+        'closed' => [
+            'classes' => 'bg-zinc-100 text-zinc-600 border-zinc-200 ring-zinc-500/10',
+            'dot' => 'bg-zinc-400',
+            'label' => 'Closed',
+        ],
         'shortlisted', 'interviewed' => [
             'classes' => 'bg-[#D1FAE5] text-[#065F46] border-[#A7F3D0] ring-emerald-500/10',
             'dot' => 'bg-[#059669]',

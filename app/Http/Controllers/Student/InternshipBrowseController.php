@@ -236,10 +236,10 @@ class InternshipBrowseController extends Controller
     {
         $student = Auth::user()->studentProfile;
 
-        $applications = Application::with(['internshipPost.companyProfile'])
+        $applications = Application::with(['internshipPost.companyProfile', 'interview'])
             ->where('student_profile_id', $student?->id)
             ->latest('applied_at')
-            ->paginate(5)
+            ->paginate(10)
             ->withQueryString();
 
         return view('student.applications.index', compact('applications'));

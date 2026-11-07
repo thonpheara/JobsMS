@@ -40,6 +40,21 @@ class Application extends Model
         return $this->belongsTo(StudentProfile::class);
     }
 
+    public function interviews(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Interview::class);
+    }
+
+    public function interview(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Interview::class)->latestOfMany();
+    }
+
+    public function latestInterview(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Interview::class)->latestOfMany();
+    }
+
     public function isPending(): bool
     {
         return $this->status === 'pending';
