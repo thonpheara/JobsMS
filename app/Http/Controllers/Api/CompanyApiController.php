@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Models\Application;
 use App\Models\CompanyProfile;
 use App\Models\InternshipPost;
+use App\Models\Interview;
 use App\Models\User;
 use App\Notifications\AppNotification;
 use Illuminate\Http\JsonResponse;
@@ -49,12 +50,15 @@ class CompanyApiController extends BaseApiController
             ->get();
 
         $topPostsChart = [
-            'labels'      => $topPosts->map(fn($p) => \Illuminate\Support\Str::limit($p->title, 20))->values()->toArray(),
-            'full_titles' => $topPosts->map(fn($p) => $p->title)->values()->toArray(),
-            'data'        => $topPosts->map(fn($p) => (int) $p->applications_count)->values()->toArray(),
-            'ids'         => $topPosts->map(fn($p) => $p->id)->values()->toArray(),
-            'total'       => $topPosts->sum('applications_count'),
-            'has_data'    => $topPosts->contains(fn($p) => $p->applications_count > 0),
+            'labels'            => $topPosts->map(fn($p) => \Illuminate\Support\Str::limit($p->title, 20))->values()->toArray(),
+            'full_titles'       => $topPosts->map(fn($p) => $p->title)->values()->toArray(),
+            'data'              => $topPosts->map(fn($p) => (int) $p->applications_count)->values()->toArray(),
+            'ids'               => $topPosts->map(fn($p) => $p->id)->values()->toArray(),
+            'opportunity_types' => $topPosts->map(fn($p) => $p->opportunity_type ?? 'internship')->values()->toArray(),
+            'type_labels'       => $topPosts->map(fn($p) => $p->opportunity_type_label)->values()->toArray(),
+            'is_internships'    => $topPosts->map(fn($p) => $p->isInternship())->values()->toArray(),
+            'total'             => $topPosts->sum('applications_count'),
+            'has_data'          => $topPosts->contains(fn($p) => $p->applications_count > 0),
         ];
 
         // 2. Status breakdown for donut
@@ -63,32 +67,43 @@ class CompanyApiController extends BaseApiController
             ->groupBy('status')
             ->pluck('total', 'status');
 
-        $appliedTotal     = (int)(($statusCounts['pending'] ?? 0) + ($statusCounts['under_review'] ?? 0));
-        $shortlistedTotal = (int)(($statusCounts['shortlisted'] ?? 0) + ($statusCounts['interviewed'] ?? 0));
-        $acceptedTotal    = (int)($statusCounts['accepted'] ?? 0);
-        $rejectedTotal    = (int)(($statusCounts['rejected'] ?? 0) + ($statusCounts['withdrawn'] ?? 0));
-        $totalOutcomes    = $appliedTotal + $shortlistedTotal + $acceptedTotal + $rejectedTotal;
-        $placementRate    = $totalOutcomes > 0 ? round(($acceptedTotal / $totalOutcomes) * 100, 1) : 0;
+        $appliedTotal      = (int)(($statusCounts['pending'] ?? 0) + ($statusCounts['under_review'] ?? 0));
+        $shortlistedTotal  = (int)($statusCounts['shortlisted'] ?? 0);
+        $interviewingTotal = (int)($statusCounts['interviewed'] ?? 0);
+        $acceptedTotal     = (int)($statusCounts['accepted'] ?? 0);
+        $rejectedTotal     = (int)(($statusCounts['rejected'] ?? 0) + ($statusCounts['withdrawn'] ?? 0));
+        $totalOutcomes     = $appliedTotal + $shortlistedTotal + $interviewingTotal + $acceptedTotal + $rejectedTotal;
+        $placementRate     = $totalOutcomes > 0 ? round(($acceptedTotal / $totalOutcomes) * 100, 1) : 0;
 
         $donutData = [
-            'labels' => ['Applied', 'Shortlisted', 'Accepted', 'Rejected'],
-            'data'   => [$appliedTotal, $shortlistedTotal, $acceptedTotal, $rejectedTotal],
-            'colors' => ['#0EA5E9', '#6366F1', '#10B981', '#F43F5E'],
+            'labels' => ['Applied', 'Shortlisted', 'Interviewing', 'Accepted', 'Rejected'],
+            'data'   => [$appliedTotal, $shortlistedTotal, $interviewingTotal, $acceptedTotal, $rejectedTotal],
+            'colors' => ['#0EA5E9', '#14B8A6', '#6366F1', '#10B981', '#F43F5E'],
             'total'  => $totalOutcomes,
             'placement_rate' => $placementRate,
             'counts' => [
-                'applied'     => $appliedTotal,
-                'shortlisted' => $shortlistedTotal,
-                'accepted'    => $acceptedTotal,
-                'rejected'    => $rejectedTotal,
+                'applied'      => $appliedTotal,
+                'shortlisted'  => $shortlistedTotal,
+                'interviewing' => $interviewingTotal,
+                'accepted'     => $acceptedTotal,
+                'rejected'     => $rejectedTotal,
             ],
             'percentages' => [
-                'applied'     => $totalOutcomes > 0 ? round(($appliedTotal / $totalOutcomes) * 100) : 0,
-                'shortlisted' => $totalOutcomes > 0 ? round(($shortlistedTotal / $totalOutcomes) * 100) : 0,
-                'accepted'    => $totalOutcomes > 0 ? round(($acceptedTotal / $totalOutcomes) * 100) : 0,
-                'rejected'    => $totalOutcomes > 0 ? round(($rejectedTotal / $totalOutcomes) * 100) : 0,
+                'applied'      => $totalOutcomes > 0 ? round(($appliedTotal / $totalOutcomes) * 100) : 0,
+                'shortlisted'  => $totalOutcomes > 0 ? round(($shortlistedTotal / $totalOutcomes) * 100) : 0,
+                'interviewing' => $totalOutcomes > 0 ? round(($interviewingTotal / $totalOutcomes) * 100) : 0,
+                'accepted'     => $totalOutcomes > 0 ? round(($acceptedTotal / $totalOutcomes) * 100) : 0,
+                'rejected'     => $totalOutcomes > 0 ? round(($rejectedTotal / $totalOutcomes) * 100) : 0,
             ],
         ];
+
+        $applicationIds = Application::whereIn('internship_post_id', $postIds)->pluck('id');
+        $upcomingInterviews = Interview::with(['application.studentProfile.user', 'application.internshipPost'])
+            ->whereIn('application_id', $applicationIds)
+            ->whereIn('status', ['scheduled', 'confirmed', 'reschedule_requested'])
+            ->orderBy('scheduled_at', 'asc')
+            ->take(6)
+            ->get();
 
         return $this->sendResponse([
             'company' => $company,
@@ -98,12 +113,14 @@ class CompanyApiController extends BaseApiController
                 'total_applicants' => $totalApplicants,
                 'pending_review'   => $pendingReview,
                 'accepted'         => $acceptedCount,
+                'reschedule_requests' => $upcomingInterviews->where('status', 'reschedule_requested')->count(),
             ],
             'analytics' => [
                 'top_posts'           => $topPostsChart,
                 'status_distribution' => $donutData,
             ],
             'recent_applicants' => $recentApplicants,
+            'upcoming_interviews' => $upcomingInterviews,
         ], 'Company dashboard retrieved.');
     }
 
@@ -118,7 +135,25 @@ class CompanyApiController extends BaseApiController
             return $this->sendError('Company profile not found.', [], 404);
         }
 
-        return $this->sendResponse($company, 'Company profile retrieved.');
+        $activePostsCount = $company->internshipPosts()->where('status', 'approved')->count();
+        $fields = [
+            $company->logo_path,
+            $company->industry,
+            $company->location,
+            $company->contact_person,
+            $company->contact_phone,
+            $company->website,
+            $company->address,
+            $company->description,
+        ];
+        $filled = collect($fields)->filter(fn ($v) => !empty($v))->count();
+        $completenessPercent = (int) round(($filled / count($fields)) * 100);
+
+        $payload = $company->toArray();
+        $payload['active_posts_count'] = $activePostsCount;
+        $payload['completeness_percent'] = $completenessPercent;
+
+        return $this->sendResponse($payload, 'Company profile retrieved.');
     }
 
     /**
@@ -183,14 +218,33 @@ class CompanyApiController extends BaseApiController
             return $this->sendError('Company profile not found.', [], 404);
         }
 
-        $query = $company->internshipPosts()->withCount('applications');
+        $query = $company->internshipPosts()->withCount([
+            'applications',
+            'applications as accepted_count' => fn ($q) => $q->where('status', 'accepted'),
+        ]);
 
         if ($status = $request->input('status')) {
             $query->where('status', $status);
         }
 
+        if ($workMode = $request->input('work_mode')) {
+            if ($workMode !== 'all') {
+                $query->where('type', $workMode);
+            }
+        }
+
+        $sort = $request->input('sort', 'latest');
+        if ($sort === 'applicants_desc') {
+            $query->orderByDesc('applications_count');
+        } elseif ($sort === 'closing_soon') {
+            $query->orderByRaw('CASE WHEN deadline IS NULL THEN 1 ELSE 0 END')
+                  ->orderBy('deadline', 'asc');
+        } else {
+            $query->latest();
+        }
+
         $perPage = min((int) ($request->input('per_page') ?: 15), 50);
-        $posts = $query->latest()->paginate($perPage);
+        $posts = $query->paginate($perPage);
 
         return $this->sendResponse($posts, 'Company listings retrieved.');
     }
@@ -210,14 +264,17 @@ class CompanyApiController extends BaseApiController
             'title'                => ['required', 'string', 'max:255'],
             'category'             => ['required', 'string', 'max:100'],
             'type'                 => ['required', 'in:remote,on_site,hybrid'],
+            'opportunity_type'     => ['nullable', 'in:internship,full_time,part_time,contract'],
+            'experience_level'     => ['nullable', 'in:no_experience,entry_level,junior,mid_level'],
             'location'             => ['required', 'string', 'max:255'],
-            'duration_weeks'       => ['required', 'integer', 'min:1', 'max:104'],
+            'duration_weeks'       => ['nullable', 'integer', 'min:1', 'max:104'],
             'slots'                => ['required', 'integer', 'min:1', 'max:100'],
             'deadline'             => ['required', 'date', 'after:today'],
             'description'          => ['required', 'string', 'min:30'],
             'responsibilities'     => ['nullable', 'string'],
             'requirements'         => ['required', 'string'],
             'stipend'              => ['nullable', 'numeric', 'min:0'],
+            'salary_max'           => ['nullable', 'numeric', 'min:0'],
             'is_stipend_disclosed' => ['nullable', 'boolean'],
         ]);
 
@@ -230,21 +287,25 @@ class CompanyApiController extends BaseApiController
 
         $isDraft = $request->input('status') === 'draft' || $request->input('action') === 'draft';
         $postStatus = $isDraft ? 'draft' : 'pending_approval';
+        $opportunityType = $request->input('opportunity_type', 'internship');
 
         $post = $company->internshipPosts()->create([
             'title'                => $request->title,
             'slug'                 => $slug,
             'category'             => $request->category,
             'type'                 => $request->type ?? 'on_site',
+            'opportunity_type'     => $opportunityType,
+            'experience_level'     => $opportunityType === 'internship' ? null : $request->experience_level,
             'location'             => $request->location,
-            'duration_weeks'       => $request->duration_weeks,
+            'duration_weeks'       => $opportunityType === 'internship' ? ($request->duration_weeks ?? 12) : $request->duration_weeks,
             'slots'                => $request->slots,
             'deadline'             => $request->deadline,
             'description'          => $request->description,
             'responsibilities'     => $request->responsibilities,
             'requirements'         => $request->requirements,
             'stipend'              => $request->stipend,
-            'is_stipend_disclosed' => $request->boolean('is_stipend_disclosed', false),
+            'salary_max'           => $request->salary_max,
+            'is_stipend_disclosed' => $request->boolean('is_stipend_disclosed', true),
             'status'               => $postStatus,
         ]);
 
@@ -299,14 +360,17 @@ class CompanyApiController extends BaseApiController
             'title'                => ['sometimes', 'required', 'string', 'max:255'],
             'category'             => ['sometimes', 'required', 'string', 'max:100'],
             'type'                 => ['sometimes', 'required', 'in:remote,on_site,hybrid'],
+            'opportunity_type'     => ['sometimes', 'required', 'in:internship,full_time,part_time,contract'],
+            'experience_level'     => ['nullable', 'in:no_experience,entry_level,junior,mid_level'],
             'location'             => ['sometimes', 'required', 'string', 'max:255'],
-            'duration_weeks'       => ['sometimes', 'required', 'integer', 'min:1'],
+            'duration_weeks'       => ['nullable', 'integer', 'min:1'],
             'slots'                => ['sometimes', 'required', 'integer', 'min:1'],
             'deadline'             => ['sometimes', 'required', 'date'],
             'description'          => ['sometimes', 'required', 'string', 'min:30'],
             'responsibilities'     => ['nullable', 'string'],
             'requirements'         => ['sometimes', 'required', 'string'],
             'stipend'              => ['nullable', 'numeric', 'min:0'],
+            'salary_max'           => ['nullable', 'numeric', 'min:0'],
             'is_stipend_disclosed' => ['nullable', 'boolean'],
             'status'               => ['nullable', 'in:pending,approved,closed,draft'],
         ]);
@@ -316,10 +380,17 @@ class CompanyApiController extends BaseApiController
         }
 
         $data = $request->only([
-            'title', 'category', 'type', 'location', 'duration_weeks',
-            'slots', 'deadline', 'description', 'responsibilities',
-            'requirements', 'stipend', 'is_stipend_disclosed'
+            'title', 'category', 'type', 'opportunity_type', 'experience_level',
+            'location', 'duration_weeks', 'slots', 'deadline', 'description',
+            'responsibilities', 'requirements', 'stipend', 'salary_max', 'is_stipend_disclosed'
         ]);
+
+        $targetOppType = $data['opportunity_type'] ?? $post->opportunity_type;
+        if ($targetOppType === 'internship') {
+            $data['experience_level'] = null;
+        } else {
+            $data['duration_weeks'] = null;
+        }
 
         // Security check: company cannot approve own post
         if ($request->filled('status') && in_array($request->status, ['draft', 'closed'], true)) {
@@ -575,5 +646,265 @@ class CompanyApiController extends BaseApiController
             'interview'          => $interview,
             'application_status' => $application->fresh()->status,
         ], 'Interview scheduled successfully. Invitation sent to candidate.', 201);
+    }
+
+    /**
+     * Toggle an approved listing between active (approved) and closed.
+     */
+    public function toggleClosePost(Request $request, int $id): JsonResponse
+    {
+        $company = $request->user()->companyProfile;
+        $post = $company?->internshipPosts()->find($id);
+
+        if (!$post) {
+            return $this->sendError('Post not found.', [], 404);
+        }
+
+        if (!in_array($post->status, ['approved', 'closed'], true)) {
+            return $this->sendError('Only approved or closed listings can be toggled.', [], 422);
+        }
+
+        $newStatus = $post->status === 'approved' ? 'closed' : 'approved';
+        $post->update(['status' => $newStatus]);
+
+        return $this->sendResponse($post->fresh(), "Listing status updated to {$newStatus}.");
+    }
+
+    /**
+     * Bulk update applicant statuses for the company.
+     */
+    public function bulkUpdateApplicantStatus(Request $request): JsonResponse
+    {
+        $company = $request->user()->companyProfile;
+        if (!$company) {
+            return $this->sendError('Company profile not found.', [], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'application_ids'   => ['required', 'array', 'min:1'],
+            'application_ids.*' => ['integer'],
+            'status'            => ['required', 'in:pending,under_review,shortlisted,interviewed,accepted,rejected'],
+        ]);
+
+        if ($validator->fails()) {
+            return $this->sendError('Validation failed', $validator->errors(), 422);
+        }
+
+        $postIds = $company->internshipPosts()->pluck('id');
+        $applications = Application::with(['studentProfile.user', 'internshipPost'])
+            ->whereIn('internship_post_id', $postIds)
+            ->whereIn('id', $request->input('application_ids'))
+            ->where('status', '!=', 'withdrawn')
+            ->get();
+
+        $newStatus = $request->input('status');
+        $updatedCount = 0;
+
+        foreach ($applications as $application) {
+            $application->update([
+                'status'      => $newStatus,
+                'reviewed_at' => now(),
+            ]);
+            $updatedCount++;
+
+            if ($studentUser = $application->studentProfile?->user) {
+                $statusLabel = ucfirst(str_replace('_', ' ', $newStatus));
+                $studentUser->notify(new AppNotification(
+                    title: "Application Status Update: {$statusLabel}",
+                    message: "{$company->company_name} updated your application status for '{$application->internshipPost->title}' to {$statusLabel}.",
+                    actionUrl: route('student.applications.index'),
+                    icon: 'fa-solid fa-file-circle-check',
+                    color: match ($newStatus) {
+                        'accepted'    => 'emerald',
+                        'shortlisted' => 'blue',
+                        'rejected'    => 'rose',
+                        default       => 'gray',
+                    }
+                ));
+            }
+        }
+
+        return $this->sendResponse([
+            'updated_count' => $updatedCount,
+            'status'        => $newStatus,
+        ], "{$updatedCount} application(s) updated to {$newStatus}.");
+    }
+
+    /**
+     * List all interviews across the company's job & internship postings.
+     */
+    public function listInterviews(Request $request): JsonResponse
+    {
+        $company = $request->user()->companyProfile;
+        if (!$company) {
+            return $this->sendError('Company profile not found.', [], 404);
+        }
+
+        $postIds = $company->internshipPosts()->pluck('id');
+        $applicationIds = Application::whereIn('internship_post_id', $postIds)->pluck('id');
+
+        $baseQuery = Interview::with(['application.studentProfile.user', 'application.internshipPost'])
+            ->whereIn('application_id', $applicationIds);
+
+        $stats = [
+            'total'      => (clone $baseQuery)->count(),
+            'today'      => (clone $baseQuery)->whereDate('scheduled_at', now()->toDateString())
+                ->whereIn('status', ['scheduled', 'confirmed', 'reschedule_requested'])->count(),
+            'upcoming'   => (clone $baseQuery)->whereIn('status', ['scheduled', 'confirmed'])
+                ->where('scheduled_at', '>=', now()->startOfDay())->count(),
+            'reschedule' => (clone $baseQuery)->where('status', 'reschedule_requested')->count(),
+            'completed'  => (clone $baseQuery)->where('status', 'completed')->count(),
+            'cancelled'  => (clone $baseQuery)->where('status', 'cancelled')->count(),
+        ];
+
+        $query = clone $baseQuery;
+        $tab = $request->input('tab', 'all');
+
+        if ($tab === 'today') {
+            $query->whereDate('scheduled_at', now()->toDateString())
+                  ->whereIn('status', ['scheduled', 'confirmed', 'reschedule_requested']);
+        } elseif ($tab === 'upcoming') {
+            $query->whereIn('status', ['scheduled', 'confirmed'])
+                  ->where('scheduled_at', '>=', now()->startOfDay());
+        } elseif ($tab === 'reschedule_requested') {
+            $query->where('status', 'reschedule_requested');
+        } elseif ($tab === 'completed') {
+            $query->where('status', 'completed');
+        } elseif ($tab === 'cancelled') {
+            $query->where('status', 'cancelled');
+        }
+
+        if ($meetingType = $request->input('meeting_type')) {
+            $query->where('meeting_type', $meetingType);
+        }
+
+        if ($postId = $request->input('post_id')) {
+            $query->whereHas('application', fn ($q) => $q->where('internship_post_id', $postId));
+        }
+
+        if ($search = trim((string) $request->input('search'))) {
+            $query->whereHas('application', function ($aq) use ($search) {
+                $aq->whereHas('studentProfile', function ($sq) use ($search) {
+                    $sq->where('major', 'like', "%{$search}%")
+                       ->orWhereHas('user', fn ($uq) => $uq->where('name', 'like', "%{$search}%"));
+                })->orWhereHas('internshipPost', function ($pq) use ($search) {
+                    $pq->where('title', 'like', "%{$search}%");
+                });
+            });
+        }
+
+        $perPage = min((int) ($request->input('per_page') ?: 15), 50);
+        $interviews = $query
+            ->orderByRaw("CASE WHEN status = 'reschedule_requested' THEN 0 WHEN status IN ('scheduled', 'confirmed') THEN 1 ELSE 2 END")
+            ->orderBy('scheduled_at', 'asc')
+            ->paginate($perPage);
+
+        return $this->sendResponse([
+            'stats'      => $stats,
+            'interviews' => $interviews,
+        ], 'Company interviews retrieved.');
+    }
+
+    /**
+     * Create/schedule a new interview from the interview management endpoint.
+     */
+    public function storeInterview(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'application_id' => ['required', 'integer'],
+        ]);
+
+        if ($validator->fails()) {
+            return $this->sendError('Validation failed', $validator->errors(), 422);
+        }
+
+        return $this->scheduleInterview($request, (int) $request->input('application_id'));
+    }
+
+    /**
+     * Reschedule or update an existing interview.
+     */
+    public function updateInterview(Request $request, int $id): JsonResponse
+    {
+        $company = $request->user()->companyProfile;
+        $postIds = $company?->internshipPosts()->pluck('id') ?? collect();
+
+        $interview = Interview::with(['application.studentProfile.user', 'application.internshipPost'])
+            ->whereHas('application', fn ($q) => $q->whereIn('internship_post_id', $postIds))
+            ->find($id);
+
+        if (!$interview) {
+            return $this->sendError('Interview not found or unauthorized.', [], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'scheduled_at'     => ['required', 'date'],
+            'meeting_type'     => ['required', 'in:online,in_person'],
+            'location_or_link' => ['required', 'string', 'max:500'],
+            'notes'            => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        if ($validator->fails()) {
+            return $this->sendError('Validation failed', $validator->errors(), 422);
+        }
+
+        $interview->update([
+            'scheduled_at'         => $request->scheduled_at,
+            'meeting_type'         => $request->meeting_type,
+            'location_or_link'     => $request->location_or_link,
+            'notes'                => $request->notes,
+            'status'               => 'scheduled',
+            'confirmed_by_student' => false,
+            'reschedule_reason'    => null,
+        ]);
+
+        if ($studentUser = $interview->application->studentProfile?->user) {
+            $studentUser->notify(new \App\Notifications\InterviewScheduledNotification($interview));
+        }
+
+        return $this->sendResponse($interview->fresh(), 'Interview rescheduled and candidate notified.');
+    }
+
+    /**
+     * Update interview outcome status (completed or cancelled).
+     */
+    public function updateInterviewStatus(Request $request, int $id): JsonResponse
+    {
+        $company = $request->user()->companyProfile;
+        $postIds = $company?->internshipPosts()->pluck('id') ?? collect();
+
+        $interview = Interview::with(['application.studentProfile.user', 'application.internshipPost'])
+            ->whereHas('application', fn ($q) => $q->whereIn('internship_post_id', $postIds))
+            ->find($id);
+
+        if (!$interview) {
+            return $this->sendError('Interview not found or unauthorized.', [], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'status' => ['required', 'in:completed,cancelled'],
+            'notes'  => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        if ($validator->fails()) {
+            return $this->sendError('Validation failed', $validator->errors(), 422);
+        }
+
+        $interview->update([
+            'status' => $request->status,
+            'notes'  => $request->filled('notes') ? $request->notes : $interview->notes,
+        ]);
+
+        if ($request->status === 'cancelled' && ($studentUser = $interview->application->studentProfile?->user)) {
+            $studentUser->notify(new AppNotification(
+                title: 'Interview Cancelled',
+                message: "{$company->company_name} cancelled the scheduled interview for '{$interview->application->internshipPost->title}'.",
+                actionUrl: route('student.applications.index'),
+                icon: 'fa-solid fa-calendar-xmark',
+                color: 'rose'
+            ));
+        }
+
+        return $this->sendResponse($interview->fresh(), "Interview marked as {$request->status}.");
     }
 }

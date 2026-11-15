@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Application;
 use App\Models\CompanyProfile;
 use App\Models\InternshipPost;
+use App\Models\Interview;
 use App\Models\StudentProfile;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -130,9 +131,10 @@ class CompanyDashboardAnalyticsTest extends TestCase
 
         $donut = $response->viewData('donutData');
         $this->assertEquals(3, $donut['total']);
-        $this->assertEquals(1, $donut['counts']['applied']);     // 1 pending
-        $this->assertEquals(1, $donut['counts']['shortlisted']); // 1 interviewed
-        $this->assertEquals(1, $donut['counts']['accepted']);    // 1 accepted
+        $this->assertEquals(1, $donut['counts']['applied']);      // 1 pending
+        $this->assertEquals(0, $donut['counts']['shortlisted']);  // 0 shortlisted
+        $this->assertEquals(1, $donut['counts']['interviewing']); // 1 interviewed
+        $this->assertEquals(1, $donut['counts']['accepted']);     // 1 accepted
         $this->assertEquals(0, $donut['counts']['rejected']);
 
         $response->assertSee('topPostsBarCanvas');
@@ -248,11 +250,60 @@ class CompanyDashboardAnalyticsTest extends TestCase
                         'status_distribution' => ['labels', 'data', 'colors', 'total', 'placement_rate', 'counts', 'percentages'],
                     ],
                     'recent_applicants',
+                    'upcoming_interviews',
                 ],
             ])
             ->assertJsonPath('data.analytics.top_posts.total', 1)
             ->assertJsonPath('data.analytics.status_distribution.total', 1)
             ->assertJsonPath('data.analytics.status_distribution.placement_rate', 100);
+    }
+
+    /**
+     * Test company dashboard renders upcoming interviews and reschedule alerts.
+     */
+    public function test_company_dashboard_renders_upcoming_interviews_and_reschedule_alert(): void
+    {
+        $post = InternshipPost::create([
+            'company_profile_id' => $this->company->id,
+            'title'              => 'Flutter Mobile Engineer',
+            'slug'               => 'flutter-mobile-engineer-' . uniqid(),
+            'category'           => 'Mobile',
+            'type'               => 'remote',
+            'location'           => 'Phnom Penh',
+            'slots'              => 1,
+            'deadline'           => now()->addMonth(),
+            'description'        => 'Build cross-platform mobile apps.',
+            'status'             => 'approved',
+        ]);
+
+        $application = Application::create([
+            'internship_post_id' => $post->id,
+            'student_profile_id' => $this->student->id,
+            'status'             => 'interviewed',
+            'applied_at'         => now()->subDays(2),
+        ]);
+
+        // Create an upcoming interview with a reschedule request
+        $interview = Interview::create([
+            'application_id'       => $application->id,
+            'scheduled_at'         => now()->addDays(2),
+            'meeting_type'         => 'online',
+            'location_or_link'     => 'https://meet.google.com/abc-defg-hij',
+            'status'               => 'reschedule_requested',
+            'confirmed_by_student' => false,
+            'reschedule_reason'    => 'I have a university final exam on that morning.',
+        ]);
+
+        $response = $this->actingAs($this->companyUser)->get(route('company.dashboard'));
+
+        $response->assertStatus(200);
+        $response->assertSee('Upcoming Scheduled Interviews');
+        $response->assertSee('Dara Sok');
+        $response->assertSee('Flutter Mobile Engineer');
+        $response->assertSee('Reschedule');
+        $response->assertSee('I have a university final exam on that morning.');
+        $response->assertSee('Join Call');
+        $response->assertSee('Interview Reschedule Request');
     }
 
     /**

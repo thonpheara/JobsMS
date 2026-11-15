@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Company;
 use App\Http\Controllers\Controller;
 use App\Models\Application;
 use App\Models\InternshipPost;
+use App\Models\Interview;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -38,13 +39,23 @@ class CompanyDashboardController extends Controller
         $totalApplicants = $statusCounts->sum();
 
         // 4 Key KPI Metrics
+        $activePostsQuery       = InternshipPost::where('company_profile_id', $company?->id)->where('status', 'approved');
+        $activePostsCount       = (clone $activePostsQuery)->count();
+        $activeInternshipsCount = (clone $activePostsQuery)->where(function($q) {
+            $q->whereNull('opportunity_type')->orWhere('opportunity_type', 'internship');
+        })->count();
+        $activeJobsCount        = (clone $activePostsQuery)->where('opportunity_type', 'job')->count();
+
         $stats = [
-            'active_posts'     => InternshipPost::where('company_profile_id', $company?->id)->where('status', 'approved')->count(),
-            'total_posts'      => InternshipPost::where('company_profile_id', $company?->id)->count(),
-            'total_applicants' => $totalApplicants,
-            'pending_review'   => $pendingCount,
-            'interviewed'      => $interviewedCount + $shortlistedCount,
-            'accepted'         => $acceptedCount,
+            'active_posts'       => $activePostsCount,
+            'active_internships' => $activeInternshipsCount,
+            'active_jobs'        => $activeJobsCount,
+            'total_posts'        => InternshipPost::where('company_profile_id', $company?->id)->count(),
+            'total_applicants'   => $totalApplicants,
+            'pending_review'     => $pendingCount,
+            'interviewed'        => $interviewedCount + $shortlistedCount,
+            'accepted'           => $acceptedCount,
+            'placement_rate'     => $totalApplicants > 0 ? round(($acceptedCount / $totalApplicants) * 100) : 0,
         ];
 
         // 1. Feature 2.5: Bar Chart — Applications received per post (Top 5 posts)
@@ -55,39 +66,46 @@ class CompanyDashboardController extends Controller
             ->get();
 
         $topPostsChart = [
-            'labels'     => $topPosts->map(fn($p) => Str::limit($p->title, 20))->values()->toArray(),
-            'fullTitles' => $topPosts->map(fn($p) => $p->title)->values()->toArray(),
-            'data'       => $topPosts->map(fn($p) => (int) $p->applications_count)->values()->toArray(),
-            'ids'        => $topPosts->map(fn($p) => $p->id)->values()->toArray(),
-            'total'      => $topPosts->sum('applications_count'),
-            'hasData'    => $topPosts->contains(fn($p) => $p->applications_count > 0),
+            'labels'           => $topPosts->map(fn($p) => Str::limit($p->title, 20))->values()->toArray(),
+            'fullTitles'       => $topPosts->map(fn($p) => $p->title)->values()->toArray(),
+            'data'             => $topPosts->map(fn($p) => (int) $p->applications_count)->values()->toArray(),
+            'ids'              => $topPosts->map(fn($p) => $p->id)->values()->toArray(),
+            'opportunityTypes' => $topPosts->map(fn($p) => $p->opportunity_type ?? 'internship')->values()->toArray(),
+            'typeLabels'       => $topPosts->map(fn($p) => $p->opportunity_type_label)->values()->toArray(),
+            'categories'       => $topPosts->map(fn($p) => $p->category ?? 'General IT')->values()->toArray(),
+            'isInternships'    => $topPosts->map(fn($p) => $p->isInternship())->values()->toArray(),
+            'total'            => $topPosts->sum('applications_count'),
+            'hasData'          => $topPosts->contains(fn($p) => $p->applications_count > 0),
         ];
 
-        // 2. Feature 2.5: Donut Chart — Applicant Status Breakdown (applied / shortlisted / accepted / rejected)
-        $appliedTotal     = $pendingCount + $underReviewCount;
-        $shortlistedTotal = $shortlistedCount + $interviewedCount;
-        $acceptedTotal    = $acceptedCount;
-        $rejectedTotal    = $rejectedCount + $withdrawnCount;
-        $totalOutcomes    = $appliedTotal + $shortlistedTotal + $acceptedTotal + $rejectedTotal;
-        $placementRate    = $totalOutcomes > 0 ? round(($acceptedTotal / $totalOutcomes) * 100, 1) : 0;
+        // 2. Feature 2.5: Donut Chart — Applicant Status Breakdown (applied / shortlisted / interviewing / accepted / rejected)
+        $appliedTotal      = $pendingCount + $underReviewCount;
+        $shortlistedTotal  = $shortlistedCount;
+        $interviewingTotal = $interviewedCount;
+        $acceptedTotal     = $acceptedCount;
+        $rejectedTotal     = $rejectedCount + $withdrawnCount;
+        $totalOutcomes     = $appliedTotal + $shortlistedTotal + $interviewingTotal + $acceptedTotal + $rejectedTotal;
+        $placementRate     = $totalOutcomes > 0 ? round(($acceptedTotal / $totalOutcomes) * 100, 1) : 0;
 
         $donutData = [
-            'labels' => ['Applied', 'Shortlisted', 'Accepted', 'Rejected'],
-            'data'   => [$appliedTotal, $shortlistedTotal, $acceptedTotal, $rejectedTotal],
-            'colors' => ['#0EA5E9', '#6366F1', '#10B981', '#F43F5E'],
+            'labels' => ['Applied', 'Shortlisted', 'Interviewing', 'Accepted', 'Rejected'],
+            'data'   => [$appliedTotal, $shortlistedTotal, $interviewingTotal, $acceptedTotal, $rejectedTotal],
+            'colors' => ['#0EA5E9', '#14B8A6', '#6366F1', '#10B981', '#F43F5E'],
             'total'  => $totalOutcomes,
             'placementRate' => $placementRate,
             'counts' => [
-                'applied'     => $appliedTotal,
-                'shortlisted' => $shortlistedTotal,
-                'accepted'    => $acceptedTotal,
-                'rejected'    => $rejectedTotal,
+                'applied'      => $appliedTotal,
+                'shortlisted'  => $shortlistedTotal,
+                'interviewing' => $interviewingTotal,
+                'accepted'     => $acceptedTotal,
+                'rejected'     => $rejectedTotal,
             ],
             'percentages' => [
-                'applied'     => $totalOutcomes > 0 ? round(($appliedTotal / $totalOutcomes) * 100) : 0,
-                'shortlisted' => $totalOutcomes > 0 ? round(($shortlistedTotal / $totalOutcomes) * 100) : 0,
-                'accepted'    => $totalOutcomes > 0 ? round(($acceptedTotal / $totalOutcomes) * 100) : 0,
-                'rejected'    => $totalOutcomes > 0 ? round(($rejectedTotal / $totalOutcomes) * 100) : 0,
+                'applied'      => $totalOutcomes > 0 ? round(($appliedTotal / $totalOutcomes) * 100) : 0,
+                'shortlisted'  => $totalOutcomes > 0 ? round(($shortlistedTotal / $totalOutcomes) * 100) : 0,
+                'interviewing' => $totalOutcomes > 0 ? round(($interviewingTotal / $totalOutcomes) * 100) : 0,
+                'accepted'     => $totalOutcomes > 0 ? round(($acceptedTotal / $totalOutcomes) * 100) : 0,
+                'rejected'     => $totalOutcomes > 0 ? round(($rejectedTotal / $totalOutcomes) * 100) : 0,
             ],
         ];
 
@@ -140,14 +158,25 @@ class CompanyDashboardController extends Controller
             ],
         ];
 
-        // Recent applications to review (fetch latest 10 with relations)
+        // Recent applications to review (fetch latest 5 with relations for compact dashboard)
         $recentApplicants = Application::with(['studentProfile.user', 'internshipPost'])
             ->whereIn('internship_post_id', $postIds)
             ->latest('applied_at')
-            ->take(10)
+            ->take(5)
             ->get();
 
-        return view('company.dashboard', compact('company', 'stats', 'topPostsChart', 'donutData', 'pipeline', 'recentApplicants'));
+        // Feature 2.4: Upcoming Scheduled Interviews for Candidates
+        $applicationIds = Application::whereIn('internship_post_id', $postIds)->pluck('id');
+        $upcomingInterviews = Interview::with(['application.studentProfile.user', 'application.internshipPost'])
+            ->whereIn('application_id', $applicationIds)
+            ->whereIn('status', ['scheduled', 'confirmed', 'reschedule_requested'])
+            ->orderBy('scheduled_at', 'asc')
+            ->take(6)
+            ->get();
+
+        $rescheduleCount = $upcomingInterviews->where('status', 'reschedule_requested')->count();
+
+        return view('company.dashboard', compact('company', 'stats', 'topPostsChart', 'donutData', 'pipeline', 'recentApplicants', 'upcomingInterviews', 'rescheduleCount'));
     }
 }
 

@@ -25,7 +25,7 @@ class MessageController extends Controller
         $company = Auth::user()->companyProfile;
         abort_if(!$company, 403, 'Company profile not found.');
 
-        $conversations = Conversation::with(['studentProfile.user', 'latestMessage', 'application.internshipPost'])
+        $conversations = Conversation::with(['studentProfile.user', 'latestMessage', 'application.internshipPost', 'application.interview'])
             ->where('company_profile_id', $company->id)
             ->orderByDesc('last_message_at')
             ->orderByDesc('updated_at')

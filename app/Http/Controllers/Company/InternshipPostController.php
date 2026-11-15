@@ -14,19 +14,82 @@ use Illuminate\View\View;
 class InternshipPostController extends Controller
 {
     /**
-     * Display all posts created by this company.
+     * Display all posts created by this company with status tabs, search, and opportunity type filtering.
      */
-    public function index(): View
+    public function index(Request $request): View
     {
         $company = Auth::user()->companyProfile;
 
-        $posts = InternshipPost::where('company_profile_id', $company?->id)
-            ->withCount('applications')
-            ->latest()
-            ->paginate(6)
+        $baseQuery = InternshipPost::where('company_profile_id', $company?->id);
+
+        $statusCounts = (clone $baseQuery)
+            ->selectRaw('status, count(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
+        $counts = [
+            'all'              => $statusCounts->sum(),
+            'approved'         => (int) ($statusCounts['approved'] ?? 0),
+            'pending_approval' => (int) ($statusCounts['pending_approval'] ?? 0),
+            'draft'            => (int) ($statusCounts['draft'] ?? 0),
+            'closed'           => (int) ($statusCounts['closed'] ?? 0),
+            'rejected'         => (int) ($statusCounts['rejected'] ?? 0),
+        ];
+
+        $query = (clone $baseQuery)->withCount([
+            'applications',
+            'applications as accepted_count' => fn ($q) => $q->where('status', 'accepted'),
+        ]);
+
+        if ($request->filled('status') && $request->input('status') !== 'all') {
+            $query->where('status', $request->input('status'));
+        }
+
+        if ($request->filled('opportunity_type') && $request->input('opportunity_type') !== 'all') {
+            $oppType = $request->input('opportunity_type');
+            if ($oppType === 'internship') {
+                $query->where(function ($q) {
+                    $q->whereNull('opportunity_type')->orWhere('opportunity_type', 'internship');
+                });
+            } elseif ($oppType === 'job') {
+                $query->whereIn('opportunity_type', ['full_time', 'part_time', 'contract']);
+            } else {
+                $query->where('opportunity_type', $oppType);
+            }
+        }
+
+        if ($request->filled('work_mode') && $request->input('work_mode') !== 'all') {
+            $query->where('type', $request->input('work_mode'));
+        }
+
+        if ($request->filled('category') && $request->input('category') !== 'all') {
+            $query->where('category', $request->input('category'));
+        }
+
+        if ($request->filled('search')) {
+            $search = trim($request->input('search'));
+            $query->where(function ($q) use ($search) {
+                $q->where('title', 'like', "%{$search}%")
+                  ->orWhere('location', 'like', "%{$search}%")
+                  ->orWhere('category', 'like', "%{$search}%");
+            });
+        }
+
+        $sort = $request->input('sort', 'latest');
+        if ($sort === 'applicants_desc') {
+            $query->orderByDesc('applications_count')->latest();
+        } elseif ($sort === 'closing_soon') {
+            $query->orderByRaw('CASE WHEN deadline >= CURRENT_DATE THEN 0 ELSE 1 END')
+                  ->orderBy('deadline', 'asc');
+        } else {
+            $query->latest();
+        }
+
+        $posts = $query
+            ->paginate(8)
             ->withQueryString();
 
-        return view('company.posts.index', compact('posts'));
+        return view('company.posts.index', compact('posts', 'counts'));
     }
 
     /**
@@ -52,19 +115,30 @@ class InternshipPostController extends Controller
             'requirements'    => ['nullable', 'string'],
             'location'        => ['required', 'string', 'max:255'],
             'type'            => ['nullable', 'in:remote,on_site,hybrid'],
-            'duration_weeks'  => ['required', 'integer', 'min:4', 'max:52'],
+            'opportunity_type'=> ['nullable', 'in:internship,full_time,part_time,contract'],
+            'experience_level'=> ['nullable', 'in:no_experience,entry_level,junior,mid_level'],
+            'duration_weeks'  => ['nullable', 'integer', 'min:1', 'max:52'],
             'stipend'         => ['nullable', 'numeric', 'min:0'],
+            'salary_max'      => ['nullable', 'numeric', 'min:0'],
             'slots'           => ['required', 'integer', 'min:1', 'max:50'],
             'deadline'        => ['required', 'date', 'after:today'],
         ]);
 
         $isDraft = $request->input('action') === 'draft' || $request->input('status') === 'draft';
 
+        $opportunityType = $validated['opportunity_type'] ?? 'internship';
+        $validated['opportunity_type'] = $opportunityType;
         $validated['company_profile_id'] = $company->id;
         $validated['slug'] = Str::slug($validated['title']) . '-' . rand(1000, 9999);
         $validated['status'] = $isDraft ? 'draft' : 'pending_approval';
-        $validated['is_stipend_disclosed'] = !empty($validated['stipend']);
+        $validated['is_stipend_disclosed'] = !empty($validated['stipend']) || !empty($validated['salary_max']);
         $validated['type'] = $validated['type'] ?? 'on_site';
+        if ($opportunityType === 'internship') {
+            if (empty($validated['duration_weeks'])) {
+                $validated['duration_weeks'] = 12;
+            }
+            $validated['experience_level'] = null;
+        }
 
         $post = InternshipPost::create($validated);
 
@@ -122,8 +196,11 @@ class InternshipPostController extends Controller
             'requirements'    => ['nullable', 'string'],
             'location'        => ['required', 'string', 'max:255'],
             'type'            => ['nullable', 'in:remote,on_site,hybrid'],
-            'duration_weeks'  => ['required', 'integer', 'min:4', 'max:52'],
+            'opportunity_type'=> ['nullable', 'in:internship,full_time,part_time,contract'],
+            'experience_level'=> ['nullable', 'in:no_experience,entry_level,junior,mid_level'],
+            'duration_weeks'  => ['nullable', 'integer', 'min:1', 'max:52'],
             'stipend'         => ['nullable', 'numeric', 'min:0'],
+            'salary_max'      => ['nullable', 'numeric', 'min:0'],
             'slots'           => ['required', 'integer', 'min:1', 'max:50'],
             'deadline'        => ['required', 'date'],
             'status'          => ['required', Rule::in($allowedStatuses)],
@@ -133,7 +210,13 @@ class InternshipPostController extends Controller
             unset($validated['type']);
         }
 
-        $validated['is_stipend_disclosed'] = !empty($validated['stipend']);
+        if (($validated['opportunity_type'] ?? 'internship') === 'internship') {
+            $validated['experience_level'] = null;
+        } else {
+            $validated['duration_weeks'] = null;
+        }
+
+        $validated['is_stipend_disclosed'] = !empty($validated['stipend']) || !empty($validated['salary_max']);
 
         $previousStatus = $post->status;
         $post->update($validated);
@@ -229,6 +312,26 @@ class InternshipPostController extends Controller
 
         return redirect()->route('company.posts.index', ['edit' => $cloned->id])
             ->with('success', "Internship post duplicated as draft: '{$cloned->title}'. You can now adjust details and submit.");
+    }
+
+    /**
+     * Quick toggle between Closed and Reopened (Pending Approval / Approved) status.
+     */
+    public function toggleClose(InternshipPost $post): RedirectResponse
+    {
+        $this->authorizeCompanyPost($post);
+
+        if ($post->status === 'closed') {
+            $post->update(['status' => 'pending_approval']);
+            return back()->with('success', "Listing '{$post->title}' reopened and submitted for approval.");
+        }
+
+        if (in_array($post->status, ['approved', 'pending_approval'], true)) {
+            $post->update(['status' => 'closed']);
+            return back()->with('success', "Listing '{$post->title}' has been closed to new applications.");
+        }
+
+        return back()->with('info', 'Only active or closed listings can be toggled.');
     }
 
     protected function authorizeCompanyPost(InternshipPost $post): void

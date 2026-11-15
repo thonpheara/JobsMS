@@ -23,7 +23,7 @@
             </div>
             <div>
                 <span class="text-lg font-extrabold tracking-tight text-[#111827] flex items-center gap-1">
-                    Intern<span class="text-[#059669]">ship</span>
+                    Job & Intern<span class="text-[#059669]">ship</span>
                 </span>
                 <span class="block text-[10px] font-semibold text-gray-500 tracking-wider uppercase">Management System</span>
             </div>
@@ -46,6 +46,15 @@
     <!-- Navigation Menu -->
     <nav class="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto">
         @if ($role === 'student')
+            @php
+                $studentProfileId = $user->studentProfile?->id;
+                $pendingStudentInterviews = $studentProfileId
+                    ? \App\Models\Interview::whereHas('application', fn ($q) => $q->where('student_profile_id', $studentProfileId))
+                        ->where('status', 'scheduled')
+                        ->where('confirmed_by_student', false)
+                        ->count()
+                    : 0;
+            @endphp
             <!-- Student Navigation -->
             <a href="{{ route('student.dashboard') }}" 
                class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm {{ request()->routeIs('student.dashboard') ? $activeClass : $inactiveClass }}">
@@ -58,9 +67,16 @@
                 Browse Internships
             </a>
             <a href="{{ route('student.applications.index') }}" 
-               class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm {{ request()->routeIs('student.applications.*') ? $activeClass : $inactiveClass }}">
-                <i class="fa-solid fa-file-circle-check w-4.5 h-4.5"></i>
-                My Applications
+               class="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm {{ request()->routeIs('student.applications.*') ? $activeClass : $inactiveClass }}">
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-file-circle-check w-4.5 h-4.5"></i>
+                    <span>My Applications</span>
+                </div>
+                @if($pendingStudentInterviews > 0)
+                    <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-indigo-600 text-white" title="{{ $pendingStudentInterviews }} interview invitation(s) awaiting confirmation">
+                        {{ $pendingStudentInterviews }}
+                    </span>
+                @endif
             </a>
             <a href="{{ route('student.bookmarks.index') }}"
                class="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm {{ request()->routeIs('student.bookmarks.*') ? $activeClass : $inactiveClass }}">
@@ -91,10 +107,39 @@
             <a href="{{ route('student.profile') }}" 
                class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm {{ request()->routeIs('student.profile*') ? $activeClass : $inactiveClass }}">
                 <i class="fa-solid fa-user-graduate w-4.5 h-4.5"></i>
-                Student Profile
+                Profile
             </a>
 
         @elseif ($role === 'company')
+            @php
+                $companyProfile = $user->companyProfile;
+                $companyProfileId = $companyProfile?->id;
+                $verificationStatus = $companyProfile?->verification_status ?? 'pending';
+
+                $pendingPostsCount = $companyProfileId
+                    ? \App\Models\InternshipPost::where('company_profile_id', $companyProfileId)
+                        ->where('status', 'pending_approval')
+                        ->count()
+                    : 0;
+
+                $rejectedPostsCount = $companyProfileId
+                    ? \App\Models\InternshipPost::where('company_profile_id', $companyProfileId)
+                        ->where('status', 'rejected')
+                        ->count()
+                    : 0;
+
+                $newApplicantsCount = $companyProfileId
+                    ? \App\Models\Application::whereHas('internshipPost', fn ($q) => $q->where('company_profile_id', $companyProfileId))
+                        ->where('status', 'pending')
+                        ->count()
+                    : 0;
+
+                $rescheduleInterviewsCount = $companyProfileId
+                    ? \App\Models\Interview::whereHas('application.internshipPost', fn ($q) => $q->where('company_profile_id', $companyProfileId))
+                        ->where('status', 'reschedule_requested')
+                        ->count()
+                    : 0;
+            @endphp
             <!-- Company Navigation -->
             <a href="{{ route('company.dashboard') }}" 
                class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm {{ request()->routeIs('company.dashboard') ? $activeClass : $inactiveClass }}">
@@ -102,14 +147,44 @@
                 Dashboard
             </a>
             <a href="{{ route('company.posts.index') }}" 
-               class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm {{ request()->routeIs('company.posts.*') ? $activeClass : $inactiveClass }}">
-                <i class="fa-solid fa-file-circle-plus w-4.5 h-4.5"></i>
-                Manage Listings
+               class="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm {{ request()->routeIs('company.posts.*') ? $activeClass : $inactiveClass }}">
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-file-circle-plus w-4.5 h-4.5"></i>
+                    <span>Jobs</span>
+                </div>
+                @if($rejectedPostsCount > 0)
+                    <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-rose-500 text-white" title="{{ $rejectedPostsCount }} rejected post(s) need attention">
+                        {{ $rejectedPostsCount }}
+                    </span>
+                @elseif($pendingPostsCount > 0)
+                    <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-500 text-white" title="{{ $pendingPostsCount }} post(s) awaiting admin approval">
+                        {{ $pendingPostsCount }}
+                    </span>
+                @endif
             </a>
             <a href="{{ route('company.applicants.index') }}" 
-               class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm {{ request()->routeIs('company.applicants.*') ? $activeClass : $inactiveClass }}">
-                <i class="fa-solid fa-users w-4.5 h-4.5"></i>
-                Applicant Pipeline
+               class="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm {{ request()->routeIs('company.applicants.*') ? $activeClass : $inactiveClass }}">
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-users w-4.5 h-4.5"></i>
+                    <span>Applicants</span>
+                </div>
+                @if($newApplicantsCount > 0)
+                    <span class="px-2 py-0.5 text-[10px] font-bold rounded-full {{ request()->routeIs('company.applicants.*') ? 'bg-[#D1FAE5] text-[#065F46]' : 'bg-[#059669] text-white' }}" title="{{ $newApplicantsCount }} new applicant(s) pending review">
+                        {{ $newApplicantsCount }}
+                    </span>
+                @endif
+            </a>
+            <a href="{{ route('company.interviews.index') }}" 
+               class="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm {{ request()->routeIs('company.interviews.*') ? $activeClass : $inactiveClass }}">
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-calendar-check w-4.5 h-4.5"></i>
+                    <span>Interviews</span>
+                </div>
+                @if($rescheduleInterviewsCount > 0)
+                    <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-500 text-white" title="{{ $rescheduleInterviewsCount }} reschedule request(s)">
+                        {{ $rescheduleInterviewsCount }}
+                    </span>
+                @endif
             </a>
             <a href="{{ route('company.messages.index') }}" 
                class="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm {{ request()->routeIs('company.messages.*') ? $activeClass : $inactiveClass }}">
@@ -125,12 +200,31 @@
                 @endif
             </a>
             <a href="{{ route('company.profile') }}" 
-               class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm {{ request()->routeIs('company.profile') ? $activeClass : $inactiveClass }}">
-                <i class="fa-solid fa-city w-4.5 h-4.5"></i>
-                Company Profile
+               class="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm {{ request()->routeIs('company.profile') ? $activeClass : $inactiveClass }}">
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-city w-4.5 h-4.5"></i>
+                    <span>Profile</span>
+                </div>
+                @if($verificationStatus === 'verified')
+                    <span class="px-2 py-0.5 text-[10px] font-bold rounded-full {{ request()->routeIs('company.profile') ? 'bg-white/20 text-white' : 'bg-emerald-50 text-emerald-700 border border-emerald-200' }}" title="Verified by University Admin">
+                        <i class="fa-solid fa-circle-check text-[9px]"></i> Verified
+                    </span>
+                @elseif($verificationStatus === 'rejected')
+                    <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-rose-500 text-white" title="Verification rejected — click to review">
+                        Rejected
+                    </span>
+                @else
+                    <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-800 border border-amber-200" title="Awaiting University Admin verification">
+                        Pending
+                    </span>
+                @endif
             </a>
 
         @else
+            @php
+                $pendingCompaniesCount = \App\Models\CompanyProfile::where('verification_status', 'pending')->count();
+                $pendingModerationPostsCount = \App\Models\InternshipPost::where('status', 'pending_approval')->count();
+            @endphp
             <!-- Admin Navigation -->
             <a href="{{ route('admin.dashboard') }}" 
                class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm {{ request()->routeIs('admin.dashboard') ? $activeClass : $inactiveClass }}">
@@ -138,14 +232,28 @@
                 Dashboard
             </a>
             <a href="{{ route('admin.companies.index') }}" 
-               class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm {{ request()->routeIs('admin.companies.*') ? $activeClass : $inactiveClass }}">
-                <i class="fa-solid fa-building-circle-check w-4.5 h-4.5"></i>
-                Company Verification
+               class="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm {{ request()->routeIs('admin.companies.*') ? $activeClass : $inactiveClass }}">
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-building-circle-check w-4.5 h-4.5"></i>
+                    <span>Company Verification</span>
+                </div>
+                @if($pendingCompaniesCount > 0)
+                    <span class="px-2 py-0.5 text-[10px] font-bold rounded-full {{ request()->routeIs('admin.companies.*') ? 'bg-white text-[#065F46]' : 'bg-amber-500 text-white' }}" title="{{ $pendingCompaniesCount }} company profile(s) awaiting verification">
+                        {{ $pendingCompaniesCount }}
+                    </span>
+                @endif
             </a>
             <a href="{{ route('admin.approvals.index') }}" 
-               class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm {{ request()->routeIs('admin.approvals.*') ? $activeClass : $inactiveClass }}">
-                <i class="fa-solid fa-square-check w-4.5 h-4.5"></i>
-                Job Post Moderation
+               class="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm {{ request()->routeIs('admin.approvals.*') ? $activeClass : $inactiveClass }}">
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-square-check w-4.5 h-4.5"></i>
+                    <span>Job Post Moderation</span>
+                </div>
+                @if($pendingModerationPostsCount > 0)
+                    <span class="px-2 py-0.5 text-[10px] font-bold rounded-full {{ request()->routeIs('admin.approvals.*') ? 'bg-white text-[#065F46]' : 'bg-amber-500 text-white' }}" title="{{ $pendingModerationPostsCount }} job post(s) awaiting moderation">
+                        {{ $pendingModerationPostsCount }}
+                    </span>
+                @endif
             </a>
             <a href="{{ route('admin.users.index') }}" 
                class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm {{ request()->routeIs('admin.users.*') ? $activeClass : $inactiveClass }}">
@@ -160,7 +268,7 @@
             <a href="{{ route('admin.profile') }}" 
                class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm {{ request()->routeIs('admin.profile*') ? $activeClass : $inactiveClass }}">
                 <i class="fa-solid fa-user-shield w-4.5 h-4.5"></i>
-                Admin Profile
+                Profile
             </a>
         @endif
     </nav>

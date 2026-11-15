@@ -12,6 +12,7 @@ use App\Http\Controllers\Company\ApplicantReviewController;
 use App\Http\Controllers\Company\CompanyDashboardController;
 use App\Http\Controllers\Company\CompanyProfileController;
 use App\Http\Controllers\Company\InternshipPostController;
+use App\Http\Controllers\Company\InterviewManagementController;
 use App\Http\Controllers\Company\MessageController as CompanyMessageController;
 use App\Http\Controllers\Student\BookmarkController;
 use App\Http\Controllers\Student\CompanyPublicController;
@@ -104,14 +105,22 @@ Route::prefix('company')->as('company.')->middleware(['auth', 'role:company'])->
     // Manage internship posts
     Route::post('/posts/{post}/duplicate', [InternshipPostController::class, 'duplicate'])->name('posts.duplicate');
     Route::post('/posts/{post}/submit', [InternshipPostController::class, 'submitForApproval'])->name('posts.submit');
+    Route::post('/posts/{post}/toggle-close', [InternshipPostController::class, 'toggleClose'])->name('posts.toggle-close');
     Route::resource('posts', InternshipPostController::class)->except(['show']);
 
     // Review applicants
     Route::get('/applicants', [ApplicantReviewController::class, 'index'])->name('applicants.index');
+    Route::patch('/applicants/bulk-status', [ApplicantReviewController::class, 'bulkUpdateStatus'])->name('applicants.bulk-status');
     Route::match(['put', 'patch'], '/applicants/{application}', [ApplicantReviewController::class, 'updateStatus'])->name('applicants.update');
     Route::patch('/applicants/{application}/status', [ApplicantReviewController::class, 'updateStatus'])->name('applicants.status.patch');
     Route::post('/applicants/{application}/interview', [ApplicantReviewController::class, 'scheduleInterview'])->name('applicants.interview.store');
     Route::get('/applicants/{application}/resume', [ApplicantReviewController::class, 'resume'])->name('applicants.resume');
+
+    // Interview Management
+    Route::get('/interviews', [InterviewManagementController::class, 'index'])->name('interviews.index');
+    Route::post('/interviews', [InterviewManagementController::class, 'store'])->name('interviews.store');
+    Route::put('/interviews/{interview}', [InterviewManagementController::class, 'update'])->name('interviews.update');
+    Route::patch('/interviews/{interview}/status', [InterviewManagementController::class, 'updateStatus'])->name('interviews.status');
 
     // Direct messaging
     Route::get('/messages', [CompanyMessageController::class, 'index'])->name('messages.index');

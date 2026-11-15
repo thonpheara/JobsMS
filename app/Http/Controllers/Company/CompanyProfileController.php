@@ -19,8 +19,11 @@ class CompanyProfileController extends Controller
     {
         $user = Auth::user();
         $company = $user->companyProfile;
+        $activePostsCount = $company
+            ? $company->internshipPosts()->where('status', 'approved')->count()
+            : 0;
 
-        return view('company.profile', compact('user', 'company'));
+        return view('company.profile', compact('user', 'company', 'activePostsCount'));
     }
 
     /**

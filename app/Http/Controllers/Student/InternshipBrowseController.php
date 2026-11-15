@@ -18,24 +18,33 @@ class InternshipBrowseController extends Controller
      */
     public function index(Request $request): View
     {
-        $query = InternshipPost::with('companyProfile')->approved();
+        $baseQuery = InternshipPost::with('companyProfile.user')->approved();
 
-        // ── 1. Deadline scope ──────────────────────────────────────────────
-        $deadline = $request->input('deadline', 'open');   // open | soon
-        if ($deadline === 'soon') {
-            // Closing within the next 7 days
-            $query->whereDate('deadline', '>=', now()->toDateString())
-                  ->whereDate('deadline', '<=', now()->addDays(7)->toDateString());
-        } else {
-            // Default: any post that hasn't expired yet
-            $query->whereDate('deadline', '>=', now()->toDateString());
+        // ── 1. Opportunity Type scope (all / internship / job / full_time / part_time / contract) ──
+        $opportunityType = $request->input('opportunity_type', 'all');
+        if ($opportunityType === 'job' || $opportunityType === 'jobs') {
+            $baseQuery->where('opportunity_type', '!=', 'internship');
+        } elseif (!empty($opportunityType) && $opportunityType !== 'all') {
+            $baseQuery->where('opportunity_type', $opportunityType);
         }
 
-        // ── 2. Search (title / description / location / company) ───────────
+        // ── 2. Deadline scope ──────────────────────────────────────────────
+        $deadline = $request->input('deadline', 'open');   // open | soon | all
+        if ($deadline === 'soon') {
+            // Closing within the next 7 days
+            $baseQuery->whereDate('deadline', '>=', now()->toDateString())
+                      ->whereDate('deadline', '<=', now()->addDays(7)->toDateString());
+        } elseif ($deadline !== 'all') {
+            // Default: any post that hasn't expired yet
+            $baseQuery->whereDate('deadline', '>=', now()->toDateString());
+        }
+
+        // ── 3. Search (title / description / requirements / location / company) ──
         if ($search = $request->input('search')) {
-            $query->where(function ($q) use ($search) {
+            $baseQuery->where(function ($q) use ($search) {
                 $q->where('title', 'like', "%{$search}%")
                   ->orWhere('description', 'like', "%{$search}%")
+                  ->orWhere('requirements', 'like', "%{$search}%")
                   ->orWhere('location', 'like', "%{$search}%")
                   ->orWhereHas('companyProfile', fn ($c) =>
                       $c->where('company_name', 'like', "%{$search}%")
@@ -43,43 +52,103 @@ class InternshipBrowseController extends Controller
             });
         }
 
-        // ── 3. Category filter ─────────────────────────────────────────────
-        if ($category = $request->input('category')) {
-            $query->where('category', $category);
+        // ── 4. Location specific filter ─────────────────────────────────────
+        if ($location = $request->input('location')) {
+            $baseQuery->where('location', 'like', "%{$location}%");
         }
 
-        // ── 4. Stipend filter ──────────────────────────────────────────────
+        // ── 5. Category filter ─────────────────────────────────────────────
+        if ($category = $request->input('category')) {
+            $baseQuery->where('category', $category);
+        }
+
+        // ── 6. Work Mode filter (type: remote, on_site, hybrid) ────────────
+        if ($workType = $request->input('type')) {
+            $baseQuery->where('type', $workType);
+        }
+
+        // ── 7. Experience Level filter ─────────────────────────────────────
+        if ($expLevel = $request->input('experience_level')) {
+            if ($expLevel !== 'all') {
+                $baseQuery->where('experience_level', $expLevel);
+            }
+        }
+
+        // ── 8. Date Posted filter (24h, 7d, 30d) ───────────────────────────
+        if ($datePosted = $request->input('date_posted')) {
+            match ($datePosted) {
+                '24h', 'today' => $baseQuery->where('created_at', '>=', now()->subDay()),
+                '7d', 'week'   => $baseQuery->where('created_at', '>=', now()->subDays(7)),
+                '30d', 'month' => $baseQuery->where('created_at', '>=', now()->subDays(30)),
+                default        => null,
+            };
+        }
+
+        // ── 9. Verified Companies Only filter ──────────────────────────────
+        if ($request->boolean('verified_only')) {
+            $baseQuery->whereHas('companyProfile', fn ($c) => $c->where('verification_status', 'verified'));
+        }
+
+        // ── 10. Stipend / Salary filter ────────────────────────────────────
         $stipend = $request->input('stipend', '');   // '' | has | none | min
-        $stipendMin = $request->input('stipend_min');
+        $stipendMin = $request->input('stipend_min') ?? $request->input('salary_min');
+        $salaryMax = $request->input('salary_max');
 
         if ($stipend === 'has') {
-            $query->whereNotNull('stipend')->where('stipend', '>', 0);
+            $baseQuery->where(function ($q) {
+                $q->where(fn ($sq) => $sq->whereNotNull('stipend')->where('stipend', '>', 0))
+                  ->orWhere(fn ($sq) => $sq->whereNotNull('salary_max')->where('salary_max', '>', 0));
+            });
         } elseif ($stipend === 'none') {
-            $query->where(function ($q) {
+            $baseQuery->where(function ($q) {
                 $q->whereNull('stipend')->orWhere('stipend', 0);
             });
-        } elseif ($stipend === 'min' && is_numeric($stipendMin) && $stipendMin >= 0) {
-            $query->where('stipend', '>=', (float) $stipendMin);
         }
 
-        // ── 5. Sort ────────────────────────────────────────────────────────
-        $sort = $request->input('sort', 'newest');   // newest | deadline | stipend
+        if (is_numeric($stipendMin) && $stipendMin >= 0) {
+            $baseQuery->where(function ($q) use ($stipendMin) {
+                $q->where('stipend', '>=', (float) $stipendMin)
+                  ->orWhere('salary_max', '>=', (float) $stipendMin);
+            });
+        }
+
+        if (is_numeric($salaryMax) && $salaryMax > 0) {
+            $baseQuery->where(function ($q) use ($salaryMax) {
+                $q->where('stipend', '<=', (float) $salaryMax)
+                  ->orWhere('salary_max', '<=', (float) $salaryMax);
+            });
+        }
+
+        // ── 11. Sort ───────────────────────────────────────────────────────
+        $sort = $request->input('sort', 'newest');   // newest | deadline | stipend / salary_high | salary_low
 
         match ($sort) {
-            'deadline' => $query->orderBy('deadline', 'asc'),
-            'stipend'  => $query->orderBy('stipend', 'desc')->orderBy('created_at', 'desc'),
-            default    => $query->latest(),           // newest
+            'deadline'    => $baseQuery->orderBy('deadline', 'asc'),
+            'stipend',
+            'salary_high' => $baseQuery->orderByRaw('COALESCE(salary_max, stipend, 0) DESC')->orderBy('created_at', 'desc'),
+            'salary_low'  => $baseQuery->orderByRaw('COALESCE(stipend, salary_max, 0) ASC')->orderBy('created_at', 'desc'),
+            default       => $baseQuery->latest(),           // newest
         };
 
-        $posts = $query->get();
+        $posts = $baseQuery->get();
 
-        // ── 6. Bookmarks ───────────────────────────────────────────────────
-        $student           = Auth::user()->studentProfile;
+        // ── 12. Bookmarks & Metrics ────────────────────────────────────────
+        $student = Auth::user()->studentProfile;
         $bookmarkedPostIds = $student
             ? $student->bookmarks()->pluck('internship_post_id')->toArray()
             : [];
 
-        return view('student.posts.index', compact('posts', 'bookmarkedPostIds'));
+        // Count metrics for Opportunity Type tabs
+        $activeBase = InternshipPost::approved()->whereDate('deadline', '>=', now()->toDateString());
+        $counts = [
+            'all'         => (clone $activeBase)->count(),
+            'internships' => (clone $activeBase)->where('opportunity_type', 'internship')->count(),
+            'jobs'        => (clone $activeBase)->where('opportunity_type', '!=', 'internship')->count(),
+            'full_time'   => (clone $activeBase)->where('opportunity_type', 'full_time')->count(),
+            'part_time'   => (clone $activeBase)->where('opportunity_type', 'part_time')->count(),
+        ];
+
+        return view('student.posts.index', compact('posts', 'bookmarkedPostIds', 'counts'));
     }
 
     /**

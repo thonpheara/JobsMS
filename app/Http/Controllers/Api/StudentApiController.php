@@ -224,7 +224,7 @@ class StudentApiController extends BaseApiController
     }
 
     /**
-     * Browse available approved internship posts with advanced search, filter, and sort (Feature 1.3).
+     * Browse available approved internship and job opportunities with advanced search, filter, and sort (Feature 1.3).
      */
     public function browsePosts(Request $request): JsonResponse
     {
@@ -233,20 +233,36 @@ class StudentApiController extends BaseApiController
 
         $query = InternshipPost::with('companyProfile.user')->approved();
 
-        // 1. Deadline filter: 'open' (default) or 'soon' (closing in <= 7 days)
+        // 1. Opportunity Type filter: 'all' | 'internship' | 'job' (all non-internship) | 'full_time' | 'part_time' | 'contract'
+        $opportunityType = $request->input('opportunity_type', 'all');
+        if ($opportunityType === 'job' || $opportunityType === 'jobs') {
+            $query->where('opportunity_type', '!=', 'internship');
+        } elseif (!empty($opportunityType) && $opportunityType !== 'all') {
+            $query->where('opportunity_type', $opportunityType);
+        }
+
+        // 2. Experience Level filter: 'no_experience' | 'entry_level' | 'junior' | 'mid_level'
+        if ($expLevel = $request->input('experience_level')) {
+            if ($expLevel !== 'all') {
+                $query->where('experience_level', $expLevel);
+            }
+        }
+
+        // 3. Deadline filter: 'open' (default) | 'soon' (closing in <= 7 days) | 'all'
         $deadline = $request->input('deadline', 'open');
         if ($deadline === 'soon') {
             $query->whereDate('deadline', '>=', now()->toDateString())
                   ->whereDate('deadline', '<=', now()->addDays(7)->toDateString());
-        } else {
+        } elseif ($deadline !== 'all') {
             $query->whereDate('deadline', '>=', now()->toDateString());
         }
 
-        // 2. Search title/company/description/location
+        // 4. Search title / company / description / requirements / location
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('title', 'like', "%{$search}%")
                   ->orWhere('description', 'like', "%{$search}%")
+                  ->orWhere('requirements', 'like', "%{$search}%")
                   ->orWhere('location', 'like', "%{$search}%")
                   ->orWhereHas('companyProfile', function ($compQ) use ($search) {
                       $compQ->where('company_name', 'like', "%{$search}%");
@@ -254,40 +270,74 @@ class StudentApiController extends BaseApiController
             });
         }
 
-        // 3. Category filter
+        // 5. Category filter
         if ($category = $request->input('category')) {
             $query->where('category', $category);
         }
 
-        // 4. Type filter (on_site, remote, hybrid)
+        // 6. Work Mode filter (on_site, remote, hybrid)
         if ($type = $request->input('type')) {
             $query->where('type', $type);
         }
 
-        // 5. Location filter
+        // 7. Location filter
         if ($location = $request->input('location')) {
             $query->where('location', 'like', "%{$location}%");
         }
 
-        // 6. Stipend filter: 'has' | 'none' | 'min' (with stipend_min)
+        // 8. Date posted filter (24h, 7d, 30d)
+        if ($datePosted = $request->input('date_posted')) {
+            match ($datePosted) {
+                '24h', 'today' => $query->where('created_at', '>=', now()->subDay()),
+                '7d', 'week'   => $query->where('created_at', '>=', now()->subDays(7)),
+                '30d', 'month' => $query->where('created_at', '>=', now()->subDays(30)),
+                default        => null,
+            };
+        }
+
+        // 9. Verified Companies Only
+        if ($request->boolean('verified_only')) {
+            $query->whereHas('companyProfile', fn ($compQ) => $compQ->where('verification_status', 'verified'));
+        }
+
+        // 10. Stipend / Salary filter
         $stipend = $request->input('stipend', '');
-        $stipendMin = $request->input('stipend_min');
+        $stipendMin = $request->input('stipend_min') ?? $request->input('salary_min');
+        $salaryMax = $request->input('salary_max');
+
         if ($stipend === 'has') {
-            $query->whereNotNull('stipend')->where('stipend', '>', 0);
+            $query->where(function ($q) {
+                $q->where(fn ($sq) => $sq->whereNotNull('stipend')->where('stipend', '>', 0))
+                  ->orWhere(fn ($sq) => $sq->whereNotNull('salary_max')->where('salary_max', '>', 0));
+            });
         } elseif ($stipend === 'none') {
             $query->where(function ($q) {
                 $q->whereNull('stipend')->orWhere('stipend', 0);
             });
-        } elseif ($stipend === 'min' && is_numeric($stipendMin) && $stipendMin >= 0) {
-            $query->where('stipend', '>=', (float) $stipendMin);
         }
 
-        // 7. Sort: 'newest' | 'deadline' | 'stipend'
+        if (is_numeric($stipendMin) && $stipendMin >= 0) {
+            $query->where(function ($q) use ($stipendMin) {
+                $q->where('stipend', '>=', (float) $stipendMin)
+                  ->orWhere('salary_max', '>=', (float) $stipendMin);
+            });
+        }
+
+        if (is_numeric($salaryMax) && $salaryMax > 0) {
+            $query->where(function ($q) use ($salaryMax) {
+                $q->where('stipend', '<=', (float) $salaryMax)
+                  ->orWhere('salary_max', '<=', (float) $salaryMax);
+            });
+        }
+
+        // 11. Sort: 'newest' | 'deadline' | 'stipend' / 'salary_high' | 'salary_low'
         $sort = $request->input('sort', 'newest');
         match ($sort) {
-            'deadline' => $query->orderBy('deadline', 'asc'),
-            'stipend'  => $query->orderBy('stipend', 'desc')->orderBy('created_at', 'desc'),
-            default    => $query->latest(),
+            'deadline'    => $query->orderBy('deadline', 'asc'),
+            'stipend',
+            'salary_high' => $query->orderByRaw('COALESCE(salary_max, stipend, 0) DESC')->orderBy('created_at', 'desc'),
+            'salary_low'  => $query->orderByRaw('COALESCE(stipend, salary_max, 0) ASC')->orderBy('created_at', 'desc'),
+            default       => $query->latest(),
         };
 
         $perPage = min((int) ($request->input('per_page') ?: 15), 50);

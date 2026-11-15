@@ -206,4 +206,54 @@ class CompanyKanbanTest extends TestCase
 
         $jsonResponse->assertStatus(403);
     }
+
+    /**
+     * Test company can bulk update multiple applicant statuses via AJAX PATCH.
+     */
+    public function test_company_can_bulk_update_applicant_statuses(): void
+    {
+        Notification::fake();
+
+        $response = $this->actingAs($this->companyUser)
+            ->patchJson(route('company.applicants.bulk-status'), [
+                'application_ids' => [$this->application->id],
+                'status'          => 'shortlisted',
+            ]);
+
+        $response->assertStatus(200)
+            ->assertJson([
+                'success'       => true,
+                'updated_count' => 1,
+                'status'        => 'shortlisted',
+            ]);
+
+        $this->assertDatabaseHas('applications', [
+            'id'     => $this->application->id,
+            'status' => 'shortlisted',
+        ]);
+
+        Notification::assertSentTo($this->studentUser, AppNotification::class);
+    }
+
+    /**
+     * Test company can filter applicants by pending reschedule requests.
+     */
+    public function test_company_can_filter_applicants_by_reschedule_requests(): void
+    {
+        \App\Models\Interview::create([
+            'application_id'    => $this->application->id,
+            'scheduled_at'      => now()->addDays(2),
+            'meeting_type'      => 'online',
+            'location_or_link'  => 'https://meet.example.com/abc',
+            'status'            => 'reschedule_requested',
+            'reschedule_reason' => 'Class conflict at 2pm.',
+        ]);
+
+        $response = $this->actingAs($this->companyUser)
+            ->get(route('company.applicants.index', ['reschedule_only' => 1]));
+
+        $response->assertStatus(200);
+        $response->assertViewHas('rescheduleCount', 1);
+        $response->assertSee($this->studentUser->name);
+    }
 }

@@ -40,7 +40,7 @@
                     </div>
                     <div>
                         <h3 id="modal-edit-title" class="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
-                            Edit Internship Listing
+                            Edit Post
                         </h3>
                         <p class="text-xs text-slate-500 mt-0.5">
                             Update listing details, capacity, or lifecycle status.
@@ -75,13 +75,61 @@
                     </div>
                 @endif
 
-                {{-- ══════════ Section 1: Position Details ══════════ --}}
+                {{-- ══════════ Section 1: Opportunity Type & Details ══════════ --}}
                 <div class="space-y-4">
                     <div class="flex items-center gap-2 pb-1.5 border-b border-slate-100">
                         <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
                         <h4 class="text-xs font-bold uppercase tracking-wider text-emerald-700">
-                            Position Details
+                            Opportunity Type & Role
                         </h4>
+                    </div>
+
+                    {{-- Opportunity Type Radio Cards --}}
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
+                            Listing Type <span class="text-rose-500">*</span>
+                        </label>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                            <label class="flex items-center gap-2.5 p-3 rounded-2xl border-2 cursor-pointer transition-all text-left shadow-2xs"
+                                   :class="(editPost.opportunity_type || 'internship') === 'internship' ? 'border-emerald-500 bg-emerald-50/80 text-emerald-950 font-bold ring-2 ring-emerald-500/20' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'">
+                                <input type="radio" name="opportunity_type" value="internship" x-model="editPost.opportunity_type" class="hidden">
+                                <span class="text-xl">🎓</span>
+                                <div class="min-w-0">
+                                    <div class="text-xs font-bold truncate">Internship</div>
+                                    <div class="text-[10px] text-slate-500 font-normal">Student Practicum</div>
+                                </div>
+                            </label>
+
+                            <label class="flex items-center gap-2.5 p-3 rounded-2xl border-2 cursor-pointer transition-all text-left shadow-2xs"
+                                   :class="editPost.opportunity_type === 'full_time' ? 'border-indigo-500 bg-indigo-50/80 text-indigo-950 font-bold ring-2 ring-indigo-500/20' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'">
+                                <input type="radio" name="opportunity_type" value="full_time" x-model="editPost.opportunity_type" class="hidden">
+                                <span class="text-xl">💼</span>
+                                <div class="min-w-0">
+                                    <div class="text-xs font-bold truncate">Full-Time Job</div>
+                                    <div class="text-[10px] text-slate-500 font-normal">Permanent Role</div>
+                                </div>
+                            </label>
+
+                            <label class="flex items-center gap-2.5 p-3 rounded-2xl border-2 cursor-pointer transition-all text-left shadow-2xs"
+                                   :class="editPost.opportunity_type === 'part_time' ? 'border-amber-500 bg-amber-50/80 text-amber-950 font-bold ring-2 ring-amber-500/20' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'">
+                                <input type="radio" name="opportunity_type" value="part_time" x-model="editPost.opportunity_type" class="hidden">
+                                <span class="text-xl">🕒</span>
+                                <div class="min-w-0">
+                                    <div class="text-xs font-bold truncate">Part-Time Job</div>
+                                    <div class="text-[10px] text-slate-500 font-normal">Flexible Hours</div>
+                                </div>
+                            </label>
+
+                            <label class="flex items-center gap-2.5 p-3 rounded-2xl border-2 cursor-pointer transition-all text-left shadow-2xs"
+                                   :class="editPost.opportunity_type === 'contract' ? 'border-purple-500 bg-purple-50/80 text-purple-950 font-bold ring-2 ring-purple-500/20' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'">
+                                <input type="radio" name="opportunity_type" value="contract" x-model="editPost.opportunity_type" class="hidden">
+                                <span class="text-xl">📄</span>
+                                <div class="min-w-0">
+                                    <div class="text-xs font-bold truncate">Contract</div>
+                                    <div class="text-[10px] text-slate-500 font-normal">Project Based</div>
+                                </div>
+                            </label>
+                        </div>
                     </div>
 
                     {{-- Title --}}
@@ -163,44 +211,154 @@
                         </div>
                     </div>
 
-                    {{-- Work Location --}}
-                    <div>
-                        <label for="edit-modal-location" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                            Work Location <span class="text-rose-500">*</span>
-                        </label>
-                        <div class="relative">
-                            <i class="fa-solid fa-location-dot absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none"></i>
-                            <input type="text" id="edit-modal-location" name="location"
-                                   x-model="editPost.location" required
-                                   placeholder="e.g. Phnom Penh, Siem Reap, or Remote"
-                                   class="w-full pl-10 pr-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-slate-900 transition-all placeholder-slate-400">
+                    {{-- Location, Work Mode & Experience Level (Experience Level shown only for Jobs) --}}
+                    <div class="grid grid-cols-1 gap-4"
+                         :class="(editPost.opportunity_type || 'internship') === 'internship' ? 'sm:grid-cols-2' : 'sm:grid-cols-3'">
+                        <div>
+                            <label for="edit-modal-location" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                                Work Location <span class="text-rose-500">*</span>
+                            </label>
+                            <div class="relative">
+                                <i class="fa-solid fa-location-dot absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none"></i>
+                                <input type="text" id="edit-modal-location" name="location"
+                                       x-model="editPost.location" required
+                                       placeholder="e.g. Phnom Penh, Siem Reap, or Remote"
+                                       class="w-full pl-10 pr-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-slate-900 transition-all placeholder-slate-400">
+                            </div>
+                        </div>
+
+                        {{-- Work Mode Custom Dropdown --}}
+                        <div class="relative" @click.outside="workTypeDropdownOpen = false">
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                                Work Mode <span class="text-rose-500">*</span>
+                            </label>
+                            <input type="hidden" name="type" :value="editPost.type">
+
+                            {{-- Trigger Button --}}
+                            <button type="button" @click="workTypeDropdownOpen = !workTypeDropdownOpen"
+                                    :class="workTypeDropdownOpen ? 'ring-2 ring-emerald-500 border-emerald-500 bg-white' : 'bg-slate-50 border-slate-200 hover:border-slate-300 hover:bg-white'"
+                                    class="w-full flex items-center justify-between px-3.5 py-3 border rounded-xl text-sm transition-all cursor-pointer">
+                                <span class="flex items-center gap-2.5 truncate">
+                                    <span x-text="selectedEditWorkType.icon" class="text-base leading-none"></span>
+                                    <span x-text="selectedEditWorkType.label" class="text-slate-900 font-semibold truncate text-xs sm:text-sm"></span>
+                                </span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                     fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                     :class="workTypeDropdownOpen ? 'rotate-180' : ''"
+                                     class="text-slate-400 transition-transform duration-200 shrink-0">
+                                    <path d="m6 9 6 6 6-6"/>
+                                </svg>
+                            </button>
+
+                            {{-- Dropdown Panel --}}
+                            <div x-show="workTypeDropdownOpen"
+                                 x-transition:enter="transition ease-out duration-150"
+                                 x-transition:enter-start="opacity-0 translate-y-1"
+                                 x-transition:enter-end="opacity-100 translate-y-0"
+                                 x-transition:leave="transition ease-in duration-100"
+                                 x-transition:leave-start="opacity-100 translate-y-0"
+                                 x-transition:leave-end="opacity-0 translate-y-1"
+                                 class="absolute z-50 mt-2 w-full bg-white rounded-2xl border border-slate-200 shadow-xl shadow-slate-200/80 overflow-hidden py-1.5"
+                                 style="display:none;">
+                                <template x-for="item in workTypes" :key="item.value">
+                                    <button type="button" @click="selectEditWorkType(item)"
+                                            :class="editPost.type === item.value ? 'bg-emerald-50 text-emerald-800 font-bold' : 'text-slate-700 hover:bg-slate-50 font-medium'"
+                                            class="w-full flex items-center gap-3 px-3.5 py-2.5 text-xs sm:text-sm transition-colors text-left cursor-pointer">
+                                        <span x-text="item.icon" class="text-base w-5 text-center leading-none"></span>
+                                        <div class="flex-1 min-w-0">
+                                            <div x-text="item.label" class="font-bold truncate text-xs sm:text-sm"></div>
+                                            <div x-text="item.desc" class="text-[10px] text-slate-400 font-normal truncate"></div>
+                                        </div>
+                                        <template x-if="editPost.type === item.value">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                                                 fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+                                                 class="text-emerald-600 shrink-0"><path d="M20 6 9 17l-5-5"/></svg>
+                                        </template>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+
+                        {{-- Experience Level Custom Dropdown (Only for Jobs) --}}
+                        <div x-show="(editPost.opportunity_type || 'internship') !== 'internship'" x-cloak>
+                            <div class="relative" @click.outside="expLevelDropdownOpen = false">
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                                    Experience Level
+                                </label>
+                                <input type="hidden" name="experience_level" :value="editPost.experience_level">
+
+                                {{-- Trigger Button --}}
+                                <button type="button" @click="expLevelDropdownOpen = !expLevelDropdownOpen"
+                                        :class="expLevelDropdownOpen ? 'ring-2 ring-emerald-500 border-emerald-500 bg-white' : 'bg-slate-50 border-slate-200 hover:border-slate-300 hover:bg-white'"
+                                        class="w-full flex items-center justify-between px-3.5 py-3 border rounded-xl text-sm transition-all cursor-pointer">
+                                    <span class="flex items-center gap-2.5 truncate">
+                                        <span x-text="selectedEditExpLevel.icon" class="text-base leading-none"></span>
+                                        <span x-text="selectedEditExpLevel.label" class="text-slate-900 font-semibold truncate text-xs sm:text-sm"></span>
+                                    </span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                         fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                         :class="expLevelDropdownOpen ? 'rotate-180' : ''"
+                                         class="text-slate-400 transition-transform duration-200 shrink-0">
+                                        <path d="m6 9 6 6 6-6"/>
+                                    </svg>
+                                </button>
+
+                                {{-- Dropdown Panel --}}
+                                <div x-show="expLevelDropdownOpen"
+                                     x-transition:enter="transition ease-out duration-150"
+                                     x-transition:enter-start="opacity-0 translate-y-1"
+                                     x-transition:enter-end="opacity-100 translate-y-0"
+                                     x-transition:leave="transition ease-in duration-100"
+                                     x-transition:leave-start="opacity-100 translate-y-0"
+                                     x-transition:leave-end="opacity-0 translate-y-1"
+                                     class="absolute z-50 mt-2 w-full bg-white rounded-2xl border border-slate-200 shadow-xl shadow-slate-200/80 overflow-hidden py-1.5"
+                                     style="display:none;">
+                                    <template x-for="item in expLevels" :key="item.value">
+                                        <button type="button" @click="selectEditExpLevel(item)"
+                                                :class="editPost.experience_level === item.value ? 'bg-emerald-50 text-emerald-800 font-bold' : 'text-slate-700 hover:bg-slate-50 font-medium'"
+                                                class="w-full flex items-center gap-3 px-3.5 py-2.5 text-xs sm:text-sm transition-colors text-left cursor-pointer">
+                                            <span x-text="item.icon" class="text-base w-5 text-center leading-none"></span>
+                                            <div class="flex-1 min-w-0">
+                                                <div x-text="item.label" class="font-bold truncate text-xs sm:text-sm"></div>
+                                                <div x-text="item.desc" class="text-[10px] text-slate-400 font-normal truncate"></div>
+                                            </div>
+                                            <template x-if="editPost.experience_level === item.value">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                                                     fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+                                                     class="text-emerald-600 shrink-0"><path d="M20 6 9 17l-5-5"/></svg>
+                                            </template>
+                                        </button>
+                                    </template>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                {{-- ══════════ Section 2: Terms & Capacity ══════════ --}}
+                {{-- ══════════ Section 2: Terms & Compensation ══════════ --}}
                 <div class="space-y-4 pt-3 border-t border-slate-100">
                     <div class="flex items-center gap-2 pb-1.5 border-b border-slate-100">
                         <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
                         <h4 class="text-xs font-bold uppercase tracking-wider text-emerald-700">
-                            Terms & Capacity
+                            Terms & Compensation
                         </h4>
                     </div>
 
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-                        <div>
+                        <div x-show="(editPost.opportunity_type || 'internship') === 'internship'">
                             <label for="edit-modal-duration" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
                                 Duration (wks) <span class="text-rose-500">*</span>
                             </label>
                             <div class="relative">
                                 <i class="fa-solid fa-clock absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none"></i>
                                 <input type="number" id="edit-modal-duration" name="duration_weeks"
-                                       x-model="editPost.duration_weeks" required min="4" max="52"
+                                       x-model="editPost.duration_weeks" min="1" max="52"
+                                       :required="(editPost.opportunity_type || 'internship') === 'internship'"
                                        class="w-full pl-8 pr-2 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 transition-all">
                             </div>
                         </div>
 
-                        <div>
+                        <div :class="(editPost.opportunity_type || 'internship') === 'internship' ? '' : 'sm:col-span-1'">
                             <label for="edit-modal-slots" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
                                 Open Slots <span class="text-rose-500">*</span>
                             </label>
@@ -214,7 +372,7 @@
 
                         <div>
                             <label for="edit-modal-stipend" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                                Stipend / Mo
+                                <span x-text="(editPost.opportunity_type || 'internship') === 'internship' ? 'Stipend / Mo' : 'Min Salary / Mo'"></span>
                             </label>
                             <div class="relative">
                                 <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 pointer-events-none">$</span>
@@ -224,15 +382,88 @@
                             </div>
                         </div>
 
-                        <div>
-                            <label for="edit-modal-deadline" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                                Deadline <span class="text-rose-500">*</span>
+                        <div x-show="(editPost.opportunity_type || 'internship') !== 'internship'">
+                            <label for="edit-modal-salary-max" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                                Max Salary / Mo
                             </label>
                             <div class="relative">
-                                <i class="fa-solid fa-calendar-days absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none"></i>
-                                <input type="date" id="edit-modal-deadline" name="deadline"
-                                       x-model="editPost.deadline" required
-                                       class="w-full pl-8 pr-2 py-2.5 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 transition-all">
+                                <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 pointer-events-none">$</span>
+                                <input type="number" step="50" id="edit-modal-salary-max" name="salary_max"
+                                       x-model="editPost.salary_max" placeholder="e.g. 600"
+                                       class="w-full pl-7 pr-2 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 transition-all placeholder-slate-400">
+                            </div>
+                        </div>
+
+                        {{-- Deadline Custom Date Picker --}}
+                        <div class="relative"
+                             x-data="deadlineDatePicker(editPost.deadline)"
+                             x-effect="if (editPost.deadline && editPost.deadline !== value) { parseValue(editPost.deadline); }"
+                             @click.outside="open = false">
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                                Deadline <span class="text-rose-500">*</span>
+                            </label>
+                            <input type="hidden" name="deadline" :value="value" required>
+                            <button type="button"
+                                    @click="open = !open"
+                                    :class="open ? 'ring-2 ring-emerald-500 border-emerald-500 bg-white' : 'bg-slate-50 border-slate-200 hover:border-slate-300 hover:bg-white'"
+                                    class="w-full flex items-center justify-between px-3 py-2.5 border rounded-xl text-xs sm:text-sm transition-all cursor-pointer">
+                                <span class="flex items-center gap-2 truncate">
+                                    <i class="fa-solid fa-calendar-days text-emerald-600 text-xs shrink-0"></i>
+                                    <span class="font-semibold text-slate-900 truncate" x-text="displayLabel"></span>
+                                </span>
+                                <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform duration-200 shrink-0"
+                                   :class="open ? 'rotate-180 text-emerald-600' : ''"></i>
+                            </button>
+
+                            {{-- Calendar Dropdown Panel --}}
+                            <div x-show="open"
+                                 x-cloak
+                                 x-transition:enter="transition ease-out duration-150"
+                                 x-transition:enter-start="opacity-0 scale-95 -translate-y-1"
+                                 x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+                                 x-transition:leave="transition ease-in duration-100"
+                                 x-transition:leave-start="opacity-100 scale-100 translate-y-0"
+                                 x-transition:leave-end="opacity-0 scale-95 -translate-y-1"
+                                 class="absolute right-0 top-full z-50 mt-1.5 w-68 rounded-2xl bg-white border border-slate-200 shadow-2xl p-3.5 space-y-3"
+                                 style="display: none;">
+
+                                <div class="flex items-center justify-between">
+                                    <button type="button" @click="prevMonth()" class="w-7 h-7 rounded-lg hover:bg-slate-100 text-slate-600 flex items-center justify-center transition-colors cursor-pointer">
+                                        <i class="fa-solid fa-chevron-left text-[10px]"></i>
+                                    </button>
+                                    <span class="text-xs font-extrabold text-slate-900" x-text="monthNames[viewMonth] + ' ' + viewYear"></span>
+                                    <button type="button" @click="nextMonth()" class="w-7 h-7 rounded-lg hover:bg-slate-100 text-slate-600 flex items-center justify-center transition-colors cursor-pointer">
+                                        <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                                    </button>
+                                </div>
+
+                                <div class="grid grid-cols-7 text-center text-[10px] font-bold text-slate-400">
+                                    <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+                                </div>
+
+                                <div class="grid grid-cols-7 gap-1 text-center">
+                                    <template x-for="(cell, idx) in calendarDays" :key="idx">
+                                        <button type="button"
+                                                @click="selectDate(cell); editPost.deadline = value; open = false;"
+                                                class="h-8 rounded-lg text-xs transition-all flex items-center justify-center cursor-pointer"
+                                                :class="isSelected(cell)
+                                                    ? 'bg-emerald-600 text-white font-extrabold shadow-2xs'
+                                                    : (isToday(cell)
+                                                        ? 'bg-emerald-50 text-emerald-700 font-bold border border-emerald-200'
+                                                        : (cell.currentMonth ? 'text-slate-700 hover:bg-slate-100 font-medium' : 'text-slate-300 hover:bg-slate-50'))">
+                                            <span x-text="cell.day"></span>
+                                        </button>
+                                    </template>
+                                </div>
+
+                                <div class="pt-2 border-t border-slate-100 flex items-center justify-between">
+                                    <button type="button" @click="setToday(); editPost.deadline = value; open = false;" class="text-[11px] font-bold text-emerald-600 hover:underline cursor-pointer">
+                                        Today
+                                    </button>
+                                    <button type="button" @click="open = false" class="px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold transition-colors cursor-pointer">
+                                        Done
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -323,26 +554,24 @@
                                   class="w-full px-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-slate-900 transition-all placeholder-slate-400 resize-none"></textarea>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <label for="edit-modal-responsibilities" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                                Responsibilities <span class="text-slate-400 font-normal normal-case">(optional)</span>
-                            </label>
-                            <textarea id="edit-modal-responsibilities" name="responsibilities" rows="3"
-                                      x-model="editPost.responsibilities"
-                                      placeholder="- Write and test code&#10;- Attend daily standups&#10;- Collaborate with mentors"
-                                      class="w-full px-4 py-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 transition-all placeholder-slate-400 resize-none"></textarea>
-                        </div>
+                    <div>
+                        <label for="edit-modal-responsibilities" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                            Responsibilities <span class="text-slate-400 font-normal normal-case">(optional)</span>
+                        </label>
+                        <textarea id="edit-modal-responsibilities" name="responsibilities" rows="4"
+                                  x-model="editPost.responsibilities"
+                                  placeholder="- Write and test code&#10;- Attend daily standups&#10;- Collaborate with mentors"
+                                  class="w-full px-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-slate-900 transition-all placeholder-slate-400 resize-none"></textarea>
+                    </div>
 
-                        <div>
-                            <label for="edit-modal-requirements" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                                Qualifications <span class="text-slate-400 font-normal normal-case">(optional)</span>
-                            </label>
-                            <textarea id="edit-modal-requirements" name="requirements" rows="3"
-                                      x-model="editPost.requirements"
-                                      placeholder="- Basic web fundamentals&#10;- Familiar with Git & GitHub&#10;- Good problem solving skills"
-                                      class="w-full px-4 py-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 transition-all placeholder-slate-400 resize-none"></textarea>
-                        </div>
+                    <div>
+                        <label for="edit-modal-requirements" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                            Qualifications <span class="text-slate-400 font-normal normal-case">(optional)</span>
+                        </label>
+                        <textarea id="edit-modal-requirements" name="requirements" rows="4"
+                                  x-model="editPost.requirements"
+                                  placeholder="- Basic web fundamentals&#10;- Familiar with Git & GitHub&#10;- Good problem solving skills"
+                                  class="w-full px-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-slate-900 transition-all placeholder-slate-400 resize-none"></textarea>
                     </div>
                 </div>
 

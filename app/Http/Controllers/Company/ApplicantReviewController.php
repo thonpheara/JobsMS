@@ -27,19 +27,67 @@ class ApplicantReviewController extends Controller
 
         // Filter by status
         if ($status = $request->input('status')) {
-            $query->where('status', $status);
+            $query->where('applications.status', $status);
         }
 
         // Filter by post
         if ($postId = $request->input('post_id')) {
-            $query->where('internship_post_id', $postId);
+            $query->where('applications.internship_post_id', $postId);
         }
 
-        $applications = (clone $query)->latest('applied_at')->paginate(10)->withQueryString();
+        // Filter by opportunity type
+        if ($oppType = $request->input('opportunity_type')) {
+            if ($oppType === 'internship') {
+                $query->whereHas('internshipPost', function ($q) {
+                    $q->whereNull('opportunity_type')->orWhere('opportunity_type', 'internship');
+                });
+            } elseif ($oppType === 'job') {
+                $query->whereHas('internshipPost', function ($q) {
+                    $q->whereIn('opportunity_type', ['full_time', 'part_time', 'contract']);
+                });
+            }
+        }
+
+        // Filter by reschedule requests only
+        if ($request->boolean('reschedule_only')) {
+            $query->whereHas('interview', function ($iq) {
+                $iq->where('status', 'reschedule_requested');
+            });
+        }
+
+        // Filter by search keyword
+        if ($search = trim((string) $request->input('search'))) {
+            $query->where(function ($q) use ($search) {
+                $q->whereHas('studentProfile', function ($sq) use ($search) {
+                    $sq->where('major', 'like', "%{$search}%")
+                       ->orWhereHas('user', function ($uq) use ($search) {
+                           $uq->where('name', 'like', "%{$search}%");
+                       });
+                })->orWhereHas('internshipPost', function ($pq) use ($search) {
+                    $pq->where('title', 'like', "%{$search}%");
+                });
+            });
+        }
+
+        // Sort (Latest or Highest GPA)
+        $sort = $request->input('sort', 'latest');
+        if ($sort === 'gpa_desc') {
+            $query->leftJoin('student_profiles', 'applications.student_profile_id', '=', 'student_profiles.id')
+                  ->select('applications.*')
+                  ->orderByDesc('student_profiles.gpa')
+                  ->orderByDesc('applications.applied_at');
+        } else {
+            $query->latest('applications.applied_at');
+        }
+
+        $applications = (clone $query)->paginate(10)->withQueryString();
         $companyPosts = InternshipPost::where('company_profile_id', $company?->id)->get();
+        $rescheduleCount = Application::whereIn('internship_post_id', $postIds)
+            ->whereHas('interview', fn ($q) => $q->where('status', 'reschedule_requested'))
+            ->count();
 
         // Preload lightweight applicant records for the interactive Kanban Pipeline Board
-        $kanbanAppsRaw = (clone $query)->latest('applied_at')->get();
+        $kanbanAppsRaw = (clone $query)->get();
 
         $kanbanApplications = $kanbanAppsRaw->map(function ($app) {
             $candUser = $app->studentProfile?->user;
@@ -59,10 +107,14 @@ class ApplicantReviewController extends Controller
                 'avatar_url' => $candAvatar,
                 'major' => $app->studentProfile?->major ?? 'N/A',
                 'gpa' => $app->studentProfile?->gpa ? number_format((float)$app->studentProfile->gpa, 2) : 'N/A',
+                'gpa_numeric' => $app->studentProfile?->gpa ? (float)$app->studentProfile->gpa : 0,
                 'skills' => is_array($app->studentProfile?->skills) ? array_slice($app->studentProfile->skills, 0, 3) : [],
                 'role_title' => $app->internshipPost?->title ?? 'Internship',
+                'is_internship' => $app->internshipPost?->isInternship() ?? true,
+                'opportunity_type_label' => $app->internshipPost?->opportunity_type_label ?? 'Internship',
                 'post_id' => $app->internship_post_id,
                 'applied_at' => $app->applied_at ? \Carbon\Carbon::parse($app->applied_at)->format('M d, Y') : '',
+                'applied_timestamp' => $app->applied_at ? \Carbon\Carbon::parse($app->applied_at)->timestamp : 0,
                 'applied_human' => $app->applied_at ? \Carbon\Carbon::parse($app->applied_at)->diffForHumans() : '',
                 'cover_letter' => $app->cover_letter ?? '',
                 'company_notes' => $app->company_notes ?? '',
@@ -90,7 +142,7 @@ class ApplicantReviewController extends Controller
             ];
         });
 
-        return view('company.applicants.index', compact('applications', 'companyPosts', 'kanbanApplications'));
+        return view('company.applicants.index', compact('applications', 'companyPosts', 'kanbanApplications', 'rescheduleCount'));
     }
 
     /**
@@ -131,23 +183,7 @@ class ApplicantReviewController extends Controller
 
         // Notify candidate of status update
         $statusLabel = ucfirst(str_replace('_', ' ', $validated['status']));
-        $application->studentProfile?->user?->notify(new \App\Notifications\AppNotification(
-            title: "Application Status: {$statusLabel}",
-            message: "{$company->company_name} updated your application for '{$application->internshipPost->title}' to {$statusLabel}.",
-            actionUrl: route('student.applications.index'),
-            icon: match($validated['status']) {
-                'accepted' => 'fa-solid fa-award',
-                'shortlisted' => 'fa-solid fa-star',
-                'rejected' => 'fa-solid fa-circle-xmark',
-                default => 'fa-solid fa-file-circle-check',
-            },
-            color: match($validated['status']) {
-                'accepted' => 'emerald',
-                'shortlisted' => 'teal',
-                'rejected' => 'rose',
-                default => 'blue',
-            }
-        ));
+        $this->notifyStatusUpdate($application, $company, $validated['status'], $statusLabel);
 
         if ($request->wantsJson() || $request->ajax() || $request->isJson()) {
             return response()->json([
@@ -160,7 +196,87 @@ class ApplicantReviewController extends Controller
             ]);
         }
 
-        return back()->with('success', "Candidate status updated to " . ucfirst(str_replace('_', ' ', $validated['status'])) . ".");
+        return back()->with('success', "Candidate status updated to {$statusLabel}.");
+    }
+
+    /**
+     * Bulk update status for multiple selected applications owned by this company.
+     */
+    public function bulkUpdateStatus(Request $request): JsonResponse|RedirectResponse
+    {
+        $company = Auth::user()->companyProfile;
+
+        $validated = $request->validate([
+            'application_ids' => ['required', 'array', 'min:1'],
+            'application_ids.*' => ['integer'],
+            'status' => ['required', 'in:pending,under_review,shortlisted,interviewed,accepted,rejected'],
+        ]);
+
+        $applications = Application::with(['studentProfile.user', 'internshipPost'])
+            ->whereIn('id', $validated['application_ids'])
+            ->whereHas('internshipPost', fn ($q) => $q->where('company_profile_id', $company?->id))
+            ->get();
+
+        $statusLabel = ucfirst(str_replace('_', ' ', $validated['status']));
+        $updatedCount = 0;
+
+        foreach ($applications as $application) {
+            if ($application->status === 'withdrawn') {
+                continue;
+            }
+
+            $application->update([
+                'status' => $validated['status'],
+                'reviewed_at' => now(),
+            ]);
+
+            $this->notifyStatusUpdate($application, $company, $validated['status'], $statusLabel);
+            $updatedCount++;
+        }
+
+        if ($updatedCount === 0) {
+            $msg = 'No eligible applications were updated (withdrawn applications cannot be modified).';
+            if ($request->wantsJson() || $request->ajax() || $request->isJson()) {
+                return response()->json(['success' => false, 'message' => $msg], 422);
+            }
+            return back()->with('error', $msg);
+        }
+
+        $msg = "Updated {$updatedCount} " . ($updatedCount === 1 ? 'candidate' : 'candidates') . " to {$statusLabel}.";
+        if ($request->wantsJson() || $request->ajax() || $request->isJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => $msg,
+                'updated_count' => $updatedCount,
+                'status' => $validated['status'],
+            ]);
+        }
+
+        return back()->with('success', $msg);
+    }
+
+    /**
+     * Send an in-app notification to the candidate when their application status changes.
+     */
+    private function notifyStatusUpdate(Application $application, mixed $company, string $status, string $statusLabel): void
+    {
+        $application->studentProfile?->user?->notify(new \App\Notifications\AppNotification(
+            title: "Application Status: {$statusLabel}",
+            message: "{$company?->company_name} updated your application for '{$application->internshipPost->title}' to {$statusLabel}.",
+            actionUrl: route('student.applications.index'),
+            icon: match ($status) {
+                'accepted' => 'fa-solid fa-award',
+                'shortlisted' => 'fa-solid fa-star',
+                'rejected' => 'fa-solid fa-circle-xmark',
+                default => 'fa-solid fa-file-circle-check',
+            },
+            color: match ($status) {
+                'accepted' => 'emerald',
+                'shortlisted' => 'teal',
+                'rejected' => 'rose',
+                default => 'blue',
+            }
+        ));
     }
 
     /**

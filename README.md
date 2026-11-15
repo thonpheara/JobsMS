@@ -9,7 +9,7 @@
 [![Alpine.js](https://img.shields.io/badge/Alpine.js-3.x-8BC0D0?style=for-the-badge&logo=alpinedotjs&logoColor=white)](https://alpinejs.dev)
 [![Vite](https://img.shields.io/badge/Vite-6.x-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev)
 [![MySQL](https://img.shields.io/badge/MySQL-8.x-4479A1?style=for-the-badge&logo=mysql&logoColor=white)](https://www.mysql.com)
-[![Tests](https://img.shields.io/badge/Tests-56%20Passed%20(250%20assertions)-success?style=for-the-badge&logo=checkmarx&logoColor=white)](https://github.com/thonpheara/InternshipMS)
+[![Tests](https://img.shields.io/badge/Tests-102%20Passed%20(540%20assertions)-success?style=for-the-badge&logo=checkmarx&logoColor=white)](https://github.com/thonpheara/InternshipMS)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
 **Internship Management System (IMS)** is an enterprise-grade full-stack platform and REST API backend built with **Laravel 12**, **Laravel Sanctum**, **Laravel Reverb WebSockets**, **Tailwind CSS**, **Alpine.js**, **Chart.js**, and **Vite**. It provides a unified ecosystem bridging university students, host employers, and university administrators to streamline internship discovery, candidate applications, corporate verification, job vacancy moderation, real-time bidirectional messaging, instant in-app alerts, placement reporting, and institutional analytics.
@@ -52,8 +52,16 @@ In addition to its responsive web portal, the system exposes a secure **Android 
 ## ✨ Key Features & Role Portals
 
 ### 🎓 Student Portal
-- **Internship Opportunity Discovery:** Browse approved corporate postings with dynamic search filters by job title, category, company, location, and modality (*On-site*, *Hybrid*, *Remote*).
-- **⚡ Advanced Multi-Filter & Sort Engine:** Filter listings by **Stipend** (*Any*, *Has Stipend*, *Unpaid*, or *≥ $X/month*), **Deadline cutoff** (*Open Now* vs. *Closing Soon ≤ 7 days* with 🔥 amber indicators), and sort by **Newest**, **Impending Deadline**, or **Stipend (High to Low)**.
+- **💼 Unified University Career & Internship Portal (Find Job + Internship):** Full support for discovering both 🎓 **Internships** (with defined duration in weeks) and 💼 **Full-Time, Part-Time, and Contract Jobs** with salary ranges and experience levels (*No Experience*, *Entry Level*, *Junior*, *Mid-Level*).
+- **⚡ Advanced Multi-Filter & Search Engine:** Filter opportunities dynamically by:
+  - **Opportunity Type Tabs:** *All Opportunities*, *Internships*, *All Jobs*, *Full-Time*, *Part-Time*, *Contract* with dynamic counts.
+  - **Keywords & Location:** Full-text search across position title, role description, company name, requirements, and target location.
+  - **Work Mode (Modality):** *On-Site*, *Remote*, *Hybrid*.
+  - **Experience Level:** *No Experience*, *Entry Level*, *Junior*, *Mid Level*.
+  - **Salary Range:** Minimum (`salary_min`) and maximum (`salary_max`) compensation brackets.
+  - **Date Posted:** Posted within *24 Hours*, *Past 7 Days*, or *Past 30 Days*.
+  - **Verified Employers Only:** Filter to display only opportunities from university-verified corporate partners.
+  - **Sorting:** *Newest*, *Impending Deadline*, *Salary (High to Low)*, *Salary (Low to High)*.
 - **❤️ Saved Jobs & Bookmarks System:** Bookmark vacancies with zero page reload using Alpine.js AJAX and manage saved opportunities in a dedicated `/student/bookmarks` interface with real-time sidebar count badges.
 - **✨ Smart Recommendation Engine:** Dynamic matching algorithm (`InternshipPost::recommendedFor($student)`) matching student degree major and technical skills against job requirements with relevance scoring and visual **Smart Match** chips (🎓 Major match, 🟢 Skill badges).
 - **Application Submission & Tailored Resumes:** Apply with statement of intent and choose between using default profile resume or attaching a **custom tailored CV** specific to that job vacancy.
@@ -70,6 +78,9 @@ In addition to its responsive web portal, the system exposes a secure **Android 
 
 ### 🏢 Host Company Portal
 - **Corporate Registration & Verification:** Self-service company onboarding with profile submission (industry, location, website, hiring contact person, logo) submitted for administrator verification.
+- **💼 Multi-Opportunity Publishing (Internships & Jobs):** Flexible vacancy editor allowing employers to publish:
+  - **🎓 Internships:** Requires duration in weeks and discloses optional monthly stipend.
+  - **💼 Jobs (Full-Time, Part-Time, Contract):** Eliminates rigid duration requirements, specifies experience level (*No Experience / Fresh Graduate*, *Entry Level*, *Junior*, *Mid-Level*), and defines compensation ranges ($min - $max/month).
 - **Enhanced Executive Dashboard:**
   - **4 Key KPI Metrics:** Active Approved Posts, Total Vacancies, Total Applicants, and Pending Action count.
   - **Interactive Recruitment Pipeline Board:** Proportional progress bars breakdown across *Pending Review*, *Shortlisted*, *Interviewing*, *Accepted / Placed*, and *Not Selected*.
@@ -97,6 +108,11 @@ In addition to its responsive web portal, the system exposes a secure **Android 
   - **Applications per Job Listing (Bar Chart):** Interactive Chart.js bar chart comparing student application volume across the company's **Top 5 Vacancy Posts** with custom tooltips, integer Cartesian axes, and clean empty states.
   - **Candidacy Outcomes Breakdown (Donut Chart):** Interactive donut chart showing proportional distribution across hiring pipeline stages (*Applied*, *Shortlisted / Interview*, *Accepted*, *Rejected*) with center KPI metric (**Total Applicants** + **Placement Rate % Placed**) and 2x2 categorical breakdown legend.
   - **Android REST API Analytics Payload:** The `/api/company/dashboard` endpoint provides structured `analytics.top_posts` and `analytics.status_distribution` payloads for native mobile charting.
+- **📅 Dedicated Interview Management Portal (`/company/interviews`):** Centralized interview hub with 4 KPI cards (*Total*, *Today*, *Upcoming*, *Reschedule Requests*), status tabs, custom Alpine.js filters (*Job Listing*, *Meeting Format*, *Search*), custom Calendar & Time Picker dropdowns, 1-click *Reschedule / Update*, and *Post-Interview Evaluation* (*Mark Completed* / *Cancel*).
+- **📋 Enhanced Jobs & Internship Management (`/company/posts`):** Custom *Work Mode* and *Sort* dropdowns (*Newest*, *Most Applicants*, *Closing Soon*), **Filled Slots Progress Bar** (`Hired / Slots`), **Job Detail Preview Modal**, and **1-Click Close / Reopen** toggle (`POST /company/posts/{id}/toggle-close`).
+- **💬 Upgraded Candidate Messaging (`/company/messages`):** Stage filter pills (*All*, *Unread*, *Interviewing*, *Hired*), **Quick Stage Changer** dropdown in chat header, **Pinned Interview Context Banner** with direct video call link, date dividers, auto-linked URLs, and one-click Quick Reply templates (*Send Interview Details*, *Send Offer*).
+- **🏢 Upgraded Company Profile (`/company/profile`):** Dynamic verification status alerts (*Pending* / *Rejected* with admin feedback), **Profile Completeness Progress Bar** with missing-field jump chips, **Live Logo Preview**, **Student Public View Preview Modal**, custom **Industry Sector Dropdown**, character counter, and password strength meter.
+- **🔔 Smart Role-Aware Sidebar Badges:** Real-time sidebar status pills and pending counters across all 3 portals — Admin (*Pending Companies*, *Pending Job Approvals*), Company (*Rejected/Pending Jobs*, *New Applicants*, *Reschedule Requests*, *Verification Badge*), and Student (*Unconfirmed Interview Invitations*).
 - **⚡ Real-Time Candidate Chat (WebSockets):** Seamless live messaging channel with applicants featuring instant message dispatch, live incoming chat bubbles, and auto-updated unread counts.
 - **Company Security & Password Management:** Dedicated "Security & Password" tab for recruiter password changes with authentication validation and visibility toggles.
 - **⚡ Instant In-App Alerts:** Real-time WebSocket notifications when students submit applications or when administrators verify corporate accounts and approve job listings.
@@ -185,29 +201,35 @@ All API endpoints return a predictable, strongly-typed JSON envelope:
 | **`POST`** | `/api/student/profile` | `role:student` | Update student profile information |
 | **`POST`** | `/api/student/resume` | `role:student` | Upload student PDF resume file |
 | **`DELETE`**| `/api/student/resume` | `role:student` | Delete current student PDF resume |
-| **`GET`** | `/api/student/posts` | `role:student` | Search & filter jobs (`search`, `category`, `type`, `location`, `stipend`, `deadline`, `sort`) |
-| **`GET`** | `/api/student/posts/{id}`| `role:student` | Inspect individual internship post details, company profile & bookmark flag |
+| **`GET`** | `/api/student/posts` | `role:student` | Search & filter opportunities (`opportunity_type`: `internship`\|`job`\|`full_time`\|`part_time`\|`contract`, `experience_level`, `type`, `location`, `salary_min`, `salary_max`, `date_posted`, `verified_only`, `sort`) |
+| **`GET`** | `/api/student/posts/{id}`| `role:student` | Inspect individual opportunity details, company profile & bookmark flag |
 | **`POST`** | `/api/student/posts/{id}/apply` | `role:student` | Apply to vacancy with cover letter & tailored resume (supports re-applying) |
-| **`POST`** | `/api/student/posts/{id}/bookmark` | `role:student` | Toggle saved job bookmark on an internship post (returns boolean) |
-| **`GET`** | `/api/student/bookmarks` | `role:student` | List all bookmarked/saved jobs for the authenticated student |
+| **`POST`** | `/api/student/posts/{id}/bookmark` | `role:student` | Toggle saved job bookmark on an opportunity (returns boolean) |
+| **`GET`** | `/api/student/bookmarks` | `role:student` | List all bookmarked/saved opportunities for the authenticated student |
 | **`GET`** | `/api/student/applications` | `role:student` | List all submitted student applications and review stages |
 | **`GET`** | `/api/student/applications/{id}` | `role:student` | Detailed application status tracker (review feedback, timeline) |
 | **`POST`** | `/api/student/applications/{id}/withdraw` | `role:student` | Self-service application withdrawal (pending review only) |
 | **`GET`** | `/api/student/companies/{id}` | `role:student` | View host company public profile, verification badge & active vacancies |
 | **`GET`** | `/api/company/dashboard` | `role:company` | Employer dashboard stats, vacancy counts, and pipeline summary |
-| **`GET`** | `/api/company/profile` | `role:company` | Get host employer corporate profile details |
+| **`GET`** | `/api/company/profile` | `role:company` | Get host employer corporate profile details (`active_posts_count`, `completeness_percent`) |
 | **`POST`** | `/api/company/profile` | `role:company` | Update company description, website, contact, and logo |
-| **`GET`** | `/api/company/posts` | `role:company` | List company vacancies across all moderation states |
-| **`POST`** | `/api/company/posts` | `role:company` | Create a new internship listing (enters moderation queue) |
+| **`GET`** | `/api/company/posts` | `role:company` | List company vacancies with `work_mode`, `sort`, and `accepted_count` |
+| **`POST`** | `/api/company/posts` | `role:company` | Create vacancy (`opportunity_type`, `experience_level`, `salary_max`, `duration_weeks`) |
 | **`GET`** | `/api/company/posts/{id}` | `role:company` | Inspect vacancy details |
-| **`PUT`** | `/api/company/posts/{id}` | `role:company` | Update existing internship listing |
+| **`PUT`** | `/api/company/posts/{id}` | `role:company` | Update vacancy (`opportunity_type`, `experience_level`, `salary_max`, `duration_weeks`) |
 | **`DELETE`**| `/api/company/posts/{id}` | `role:company` | Delete internship listing |
 | **`POST`** | `/api/company/posts/{id}/duplicate` | `role:company` | Duplicate/clone existing vacancy as a new draft listing |
 | **`POST`** | `/api/company/posts/{id}/submit` | `role:company` | Submit a private draft listing for university admin review |
+| **`POST`** | `/api/company/posts/{id}/toggle-close` | `role:company` | Toggle an approved vacancy between `approved` and `closed` |
 | **`GET`** | `/api/company/applicants` | `role:company` | List candidates applying to company vacancies |
+| **`PATCH`** | `/api/company/applicants/bulk-status` | `role:company` | Bulk update statuses for multiple selected applicants |
 | **`GET`** | `/api/company/applicants/{id}` | `role:company` | Detailed candidate review (cover letter, academic profile) |
 | **`PUT`** | `/api/company/applicants/{id}/status` | `role:company` | Advance candidate status (*under_review*, *shortlisted*, *accepted*, etc.) |
 | **`POST`** | `/api/company/applicants/{id}/interview` | `role:company` | Schedule online video or in-person interview session for candidate |
+| **`GET`** | `/api/company/interviews` | `role:company` | List company interviews with KPI `stats`, `tab`, `meeting_type`, `post_id`, `search` |
+| **`POST`** | `/api/company/interviews` | `role:company` | Schedule a new interview session (`application_id`, `scheduled_at`, `meeting_type`) |
+| **`PUT`** | `/api/company/interviews/{id}` | `role:company` | Reschedule or update interview details and notify candidate |
+| **`PATCH`** | `/api/company/interviews/{id}/status` | `role:company` | Mark interview as `completed` or `cancelled` with optional evaluation notes |
 | **`POST`** | `/api/student/interviews/{id}/confirm` | `role:student` | Student confirms interview attendance |
 | **`POST`** | `/api/student/interviews/{id}/reschedule` | `role:student` | Student requests interview reschedule with conflict explanation |
 | **`GET`** | `/api/conversations` | `auth:sanctum` | List all active direct messaging conversations |
@@ -244,9 +266,15 @@ curl -X GET http://127.0.0.1:8000/api/student/dashboard \
   -H "Authorization: Bearer 1|AbCdEf123456..."
 ```
 
-#### 3. Advanced Job Search & Filter (Stipend, Deadline, Sort)
+#### 3. Advanced Job & Internship Search (Find Job, Experience Level, Salary)
 ```bash
-curl -X GET "http://127.0.0.1:8000/api/student/posts?stipend=has&deadline=soon&sort=stipend" \
+# Search for full-time & part-time jobs only with entry level experience and min salary $300
+curl -X GET "http://127.0.0.1:8000/api/student/posts?opportunity_type=job&experience_level=entry_level&salary_min=300&type=hybrid&sort=salary_high" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer 1|AbCdEf123456..."
+
+# Search for internships only closing soon
+curl -X GET "http://127.0.0.1:8000/api/student/posts?opportunity_type=internship&deadline=soon&sort=newest" \
   -H "Accept: application/json" \
   -H "Authorization: Bearer 1|AbCdEf123456..."
 ```

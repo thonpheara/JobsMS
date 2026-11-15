@@ -78,12 +78,20 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/posts/{id}', [CompanyApiController::class, 'deletePost'])->name('api.company.posts.delete');
         Route::post('/posts/{id}/duplicate', [CompanyApiController::class, 'duplicatePost'])->name('api.company.posts.duplicate');
         Route::post('/posts/{id}/submit', [CompanyApiController::class, 'submitPost'])->name('api.company.posts.submit');
+        Route::post('/posts/{id}/toggle-close', [CompanyApiController::class, 'toggleClosePost'])->name('api.company.posts.toggle_close');
 
         // Review applicants
         Route::get('/applicants', [CompanyApiController::class, 'listApplicants'])->name('api.company.applicants');
+        Route::patch('/applicants/bulk-status', [CompanyApiController::class, 'bulkUpdateApplicantStatus'])->name('api.company.applicants.bulk_status');
         Route::get('/applicants/{id}', [CompanyApiController::class, 'showApplicant'])->name('api.company.applicants.show');
         Route::put('/applicants/{id}/status', [CompanyApiController::class, 'updateApplicantStatus'])->name('api.company.applicants.status');
         Route::post('/applicants/{id}/interview', [CompanyApiController::class, 'scheduleInterview'])->name('api.company.applicants.interview');
+
+        // Interview Management
+        Route::get('/interviews', [CompanyApiController::class, 'listInterviews'])->name('api.company.interviews');
+        Route::post('/interviews', [CompanyApiController::class, 'storeInterview'])->name('api.company.interviews.store');
+        Route::put('/interviews/{id}', [CompanyApiController::class, 'updateInterview'])->name('api.company.interviews.update');
+        Route::patch('/interviews/{id}/status', [CompanyApiController::class, 'updateInterviewStatus'])->name('api.company.interviews.status');
     });
 
     // 4. In-App Direct Messaging & Chat

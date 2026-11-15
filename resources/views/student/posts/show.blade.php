@@ -5,7 +5,7 @@
         <div class="flex items-center justify-between">
             <a href="{{ route('student.posts.index') }}" class="inline-flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-emerald-600 transition-colors">
                 <i class="fa-solid fa-arrow-left w-4 h-4"></i>
-                <span>Back to all internships</span>
+                <span>Back to all opportunities</span>
             </a>
 
             {{-- ❤️ Bookmark Toggle (show page) --}}
@@ -31,7 +31,7 @@
                  }">
                 <button @click="toggle()"
                         :disabled="loading"
-                        :title="bookmarked ? 'Remove from saved jobs' : 'Save this job'"
+                        :title="bookmarked ? 'Remove from saved items' : 'Save opportunity'"
                         class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-rose-400/40"
                         :class="bookmarked
                             ? 'bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-100'
@@ -41,7 +41,7 @@
                            bookmarked ? 'fa-solid fa-heart' : 'fa-regular fa-heart',
                            loading ? 'animate-pulse' : ''
                        ]"></i>
-                    <span x-text="bookmarked ? 'Saved' : 'Save Job'"></span>
+                    <span x-text="bookmarked ? 'Saved' : 'Save Opportunity'"></span>
                 </button>
             </div>
         </div>
@@ -52,15 +52,43 @@
             <div class="lg:col-span-2 space-y-6">
                 
                 <!-- Header Card -->
-                <div class="p-6 sm:p-8 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-4">
+                <div class="p-6 sm:p-8 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-5">
                     <div class="flex flex-wrap items-center justify-between gap-3">
-                        @if($post->category)
-                            <span class="px-3 py-1 rounded-full text-xs font-bold tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                {{ $post->category }}
+                        <div class="flex flex-wrap items-center gap-2">
+                            {{-- Opportunity Type Badge --}}
+                            @if($post->isInternship())
+                                <span class="px-3 py-1 rounded-full text-xs font-extrabold tracking-wide bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1.5">
+                                    <span>🎓</span>
+                                    <span>Internship</span>
+                                </span>
+                            @else
+                                <span class="px-3 py-1 rounded-full text-xs font-extrabold tracking-wide bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1.5">
+                                    <span>💼</span>
+                                    <span>{{ $post->opportunity_type_label }}</span>
+                                </span>
+                            @endif
+
+                            {{-- Work Mode Badge --}}
+                            <span class="px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1.5">
+                                <i class="fa-solid {{ $post->type === 'remote' ? 'fa-house-laptop' : ($post->type === 'hybrid' ? 'fa-building-user' : 'fa-building') }} text-[11px] text-slate-500"></i>
+                                <span>{{ ucfirst(str_replace('_', ' ', $post->type ?? 'on_site')) }}</span>
                             </span>
-                        @endif
-                        <span class="text-sm font-extrabold text-emerald-600">
-                            {{ $post->stipend ? '$' . number_format($post->stipend, 2) . '/month' : 'Standard University Stipend' }}
+
+                            @if($post->experience_level)
+                                <span class="px-3 py-1 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+                                    {{ $post->experience_level_label }}
+                                </span>
+                            @endif
+
+                            @if($post->category)
+                                <span class="px-3 py-1 rounded-full text-xs font-bold tracking-wider bg-slate-100 text-slate-700 border border-slate-200">
+                                    {{ $post->category }}
+                                </span>
+                            @endif
+                        </div>
+
+                        <span class="text-base sm:text-lg font-black text-emerald-600">
+                            {{ $post->compensation_display }}
                         </span>
                     </div>
 
@@ -88,6 +116,11 @@
                                 <a href="{{ route('student.companies.show', $post->companyProfile) }}" class="text-slate-800 hover:text-emerald-600 hover:underline transition-colors font-bold">
                                     {{ $post->companyProfile->company_name }}
                                 </a>
+                                @if($post->companyProfile->is_verified ?? false)
+                                    <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-50 text-sky-700 border border-sky-200">
+                                        <i class="fa-solid fa-circle-check text-sky-500"></i> Verified
+                                    </span>
+                                @endif
                                 <span class="text-slate-300">•</span>
                                 <span>{{ $post->location }}</span>
                             </p>
@@ -95,17 +128,27 @@
                     </div>
 
                     <!-- Meta Tags Row -->
-                    <div class="grid grid-cols-3 gap-3 pt-4 border-t border-slate-100 text-xs">
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-slate-100 text-xs">
                         <div class="p-3 rounded-2xl bg-slate-50 border border-slate-100">
-                            <span class="block text-slate-600 text-[10px] uppercase font-bold">Duration</span>
-                            <span class="font-bold text-slate-900">{{ $post->duration_weeks }} Weeks</span>
+                            <span class="block text-slate-500 text-[10px] uppercase font-bold tracking-wider">{{ $post->isInternship() ? 'Duration' : 'Type' }}</span>
+                            <span class="font-bold text-slate-900">
+                                @if($post->isInternship())
+                                    {{ $post->duration_weeks ? $post->duration_weeks . ' Weeks' : 'Flexible' }}
+                                @else
+                                    {{ $post->opportunity_type_label }}
+                                @endif
+                            </span>
                         </div>
                         <div class="p-3 rounded-2xl bg-slate-50 border border-slate-100">
-                            <span class="block text-slate-600 text-[10px] uppercase font-bold">Open Slots</span>
-                            <span class="font-bold text-slate-900">{{ $post->slots }} Candidate(s)</span>
+                            <span class="block text-slate-500 text-[10px] uppercase font-bold tracking-wider">Experience</span>
+                            <span class="font-bold text-slate-900">{{ $post->experience_level_label ?? 'Any Level' }}</span>
                         </div>
                         <div class="p-3 rounded-2xl bg-slate-50 border border-slate-100">
-                            <span class="block text-slate-600 text-[10px] uppercase font-bold">Application Cutoff</span>
+                            <span class="block text-slate-500 text-[10px] uppercase font-bold tracking-wider">Open Slots</span>
+                            <span class="font-bold text-slate-900">{{ $post->slots }} Candidate{{ $post->slots > 1 ? 's' : '' }}</span>
+                        </div>
+                        <div class="p-3 rounded-2xl bg-slate-50 border border-slate-100">
+                            <span class="block text-slate-500 text-[10px] uppercase font-bold tracking-wider">Deadline</span>
                             <span class="font-bold text-slate-900">{{ \Carbon\Carbon::parse($post->deadline)->format('M d, Y') }}</span>
                         </div>
                     </div>
