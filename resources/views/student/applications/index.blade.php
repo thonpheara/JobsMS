@@ -1,5 +1,5 @@
 <x-layout>
-    <div class="flex flex-col h-[calc(100vh-6rem)] sm:h-[calc(100vh-7rem)] lg:h-[calc(100vh-8rem)]"
+    <div class="flex flex-col space-y-4"
          x-data="{
              // Withdraw Modal State
              withdrawModalOpen: false,
@@ -70,28 +70,87 @@
          }">
 
         {{-- ─── Page Header ─── --}}
-        <div class="flex items-center justify-between pb-4 shrink-0">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shrink-0">
             <div>
-                <h2 class="text-2xl font-black tracking-tight text-slate-900">My Internship Applications</h2>
+                <h2 class="text-2xl font-black tracking-tight text-slate-900">My Applications</h2>
                 <p class="text-xs sm:text-sm text-slate-600 mt-0.5">
-                    Real-time status updates from host company recruiters.
+                    Track real-time status updates, respond to interviews, and review submitted resumes.
                 </p>
             </div>
             <a href="{{ route('student.posts.index') }}"
                class="px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700
-                      transition-colors flex items-center gap-1.5 shadow-xs shrink-0">
+                      transition-colors inline-flex items-center gap-1.5 shadow-xs self-start sm:self-auto shrink-0">
                 <i class="fa-solid fa-plus w-4 h-4"></i>
                 <span>Explore Open Roles</span>
             </a>
         </div>
 
+        {{-- ─── Filter Tabs & Search Bar ─── --}}
+        @php
+            $activeTab = request('tab', 'all');
+            $searchQuery = request('search', '');
+            $counts = $tabCounts ?? [
+                'all' => $applications->total(),
+                'in_review' => 0,
+                'interviews' => 0,
+                'action_needed' => 0,
+                'accepted' => 0,
+                'closed' => 0,
+            ];
+            $tabs = [
+                'all'           => ['label' => 'All', 'count' => $counts['all']],
+                'in_review'     => ['label' => 'In Review', 'count' => $counts['in_review']],
+                'interviews'    => ['label' => 'Interviews', 'count' => $counts['interviews']],
+                'action_needed' => ['label' => 'Action Needed', 'count' => $counts['action_needed'], 'highlight' => true],
+                'accepted'      => ['label' => 'Accepted', 'count' => $counts['accepted']],
+                'closed'        => ['label' => 'Rejected / Withdrawn', 'count' => $counts['closed']],
+            ];
+        @endphp
+        <div class="p-3 sm:p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-3 shrink-0">
+            <div class="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0 text-xs">
+                @foreach ($tabs as $key => $t)
+                    @php
+                        $isCurrent = $activeTab === $key;
+                        $isHighlight = !empty($t['highlight']) && $t['count'] > 0;
+                    @endphp
+                    <a href="{{ route('student.applications.index', array_filter(['tab' => $key === 'all' ? null : $key, 'search' => $searchQuery ?: null])) }}"
+                       class="px-3 py-1.5 rounded-xl font-semibold whitespace-nowrap inline-flex items-center gap-1.5 border transition-colors {{ $isCurrent ? 'bg-[#059669] text-white border-[#059669] shadow-xs' : ($isHighlight ? 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100' : 'bg-slate-50 text-slate-600 border-slate-200/70 hover:bg-slate-100 hover:text-slate-900') }}">
+                        <span>{{ $t['label'] }}</span>
+                        <span class="px-1.5 py-0.2 rounded-full text-[10px] font-bold {{ $isCurrent ? 'bg-white/20 text-white' : ($isHighlight ? 'bg-indigo-600 text-white' : 'bg-slate-200/80 text-slate-700') }}">
+                            {{ $t['count'] }}
+                        </span>
+                    </a>
+                @endforeach
+            </div>
+
+            <form action="{{ route('student.applications.index') }}" method="GET" class="flex items-center gap-2 shrink-0 w-full lg:w-72">
+                @if ($activeTab !== 'all')
+                    <input type="hidden" name="tab" value="{{ $activeTab }}">
+                @endif
+                <div class="relative flex-1">
+                    <i class="fa-solid fa-magnifying-glass text-slate-400 text-xs absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                    <input type="text"
+                           name="search"
+                           value="{{ $searchQuery }}"
+                           placeholder="Search role or company..."
+                           class="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50/70 focus:bg-white text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#059669]/20 focus:border-[#059669] transition-all">
+                </div>
+                @if ($searchQuery !== '')
+                    <a href="{{ route('student.applications.index', $activeTab !== 'all' ? ['tab' => $activeTab] : []) }}"
+                       class="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-semibold transition-colors">
+                        Clear
+                    </a>
+                @endif
+            </form>
+        </div>
+
         {{-- ─── Applications Container ─── --}}
-        <div class="flex flex-col flex-1 min-h-0 overflow-hidden rounded-3xl bg-white border border-slate-200/80 shadow-xs">
+        <div class="flex flex-col rounded-3xl bg-white border border-slate-200/80 shadow-xs">
 
             @if ($applications->isNotEmpty())
 
-                {{-- Scrollable card list --}}
-                <div class="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5">
+                {{-- Card list --}}
+                <div class="p-4 sm:p-5 space-y-3.5">
                     @foreach ($applications as $app)
                         @php
                             $appComp    = $app->internshipPost->companyProfile;
@@ -167,8 +226,28 @@
                                         <span>{{ $app->internshipPost->location }}</span>
                                     </p>
 
-                                    {{-- Applied date + Resume badge --}}
-                                    <div class="flex items-center gap-3 mt-1.5 flex-wrap">
+                                    {{-- Applied date + Opportunity Type + Work Mode + Resume badge --}}
+                                    @php
+                                        $oppLabel = match($app->internshipPost->opportunity_type ?? 'internship') {
+                                            'full_time' => 'Full-Time',
+                                            'part_time' => 'Part-Time',
+                                            'contract'  => 'Contract',
+                                            default     => 'Internship',
+                                        };
+                                        $workModeLabel = match($app->internshipPost->type ?? 'on_site') {
+                                            'remote' => 'Remote',
+                                            'hybrid' => 'Hybrid',
+                                            default  => 'On-Site',
+                                        };
+                                    @endphp
+                                    <div class="flex items-center gap-2 mt-1.5 flex-wrap">
+                                        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[10px] font-bold">
+                                            <i class="fa-solid fa-briefcase text-[9px] text-slate-500"></i>
+                                            {{ $oppLabel }}
+                                        </span>
+                                        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-sky-50 text-sky-700 border border-sky-200/70 text-[10px] font-semibold">
+                                            {{ $workModeLabel }}
+                                        </span>
                                         <span class="inline-flex items-center gap-1 text-[11px] text-slate-400 font-medium">
                                             <i class="fa-regular fa-calendar text-[10px]"></i>
                                             Applied {{ \Carbon\Carbon::parse($app->applied_at)->format('M d, Y') }}
@@ -376,9 +455,11 @@
                 </div>
 
                 {{-- Pagination footer --}}
-                <div class="p-4 border-t border-slate-100 bg-white shrink-0">
-                    {{ $applications->links() }}
-                </div>
+                @if ($applications->hasPages())
+                    <div class="p-4 border-t border-slate-100 bg-white rounded-b-3xl">
+                        {{ $applications->links() }}
+                    </div>
+                @endif
 
             @else
                 {{-- Empty State --}}

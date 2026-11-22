@@ -279,4 +279,84 @@ class CompanyPortalUpdatesTest extends TestCase
         $this->assertEquals('accepted', $this->application->fresh()->status);
         Notification::assertSentTo($this->studentUser, AppNotification::class);
     }
+
+    public function test_company_can_view_student_profile_via_web_and_api_and_unauthorized_is_blocked(): void
+    {
+        $this->actingAs($this->companyUser)
+            ->get(route('company.students.show', $this->student))
+            ->assertStatus(200)
+            ->assertSee('Sokha Chan')
+            ->assertSee('Software Engineering');
+
+        Sanctum::actingAs($this->companyUser);
+        $this->getJson("/api/company/students/{$this->student->id}")
+            ->assertStatus(200)
+            ->assertJsonPath('data.student.major', 'Software Engineering');
+
+        // Another company that has no applications from this student gets 403
+        $otherCompanyUser = User::factory()->create(['role' => 'company', 'status' => 'active']);
+        CompanyProfile::create([
+            'user_id'             => $otherCompanyUser->id,
+            'company_name'        => 'Other Corp',
+            'verification_status' => 'verified',
+        ]);
+
+        $this->actingAs($otherCompanyUser)
+            ->get(route('company.students.show', $this->student))
+            ->assertStatus(403);
+
+        Sanctum::actingAs($otherCompanyUser);
+        $this->getJson("/api/company/students/{$this->student->id}")
+            ->assertStatus(403);
+    }
+
+    public function test_company_can_view_and_export_hiring_reports_via_web_and_api(): void
+    {
+        $this->actingAs($this->companyUser)
+            ->get(route('company.reports.index'))
+            ->assertStatus(200)
+            ->assertSee('Hiring Reports')
+            ->assertSee('Sokha Chan');
+
+        $csvResponse = $this->actingAs($this->companyUser)
+            ->get(route('company.reports.exportCsv', ['status' => 'shortlisted']));
+        $csvResponse->assertStatus(200);
+        $this->assertStringContainsString('text/csv', (string) $csvResponse->headers->get('content-type'));
+
+        $this->actingAs($this->companyUser)
+            ->get(route('company.reports.print'))
+            ->assertStatus(200)
+            ->assertSee('Hiring Report');
+
+        Sanctum::actingAs($this->companyUser);
+        $this->getJson('/api/company/reports?status=shortlisted')
+            ->assertStatus(200)
+            ->assertJsonPath('data.stats.total_applications', 1)
+            ->assertJsonPath('data.stats.filtered_count', 1);
+    }
+
+    public function test_company_can_upload_cover_image_via_web_and_api(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+
+        $cover = \Illuminate\Http\UploadedFile::fake()->image('cover.jpg', 1200, 300);
+
+        $this->actingAs($this->companyUser)
+            ->post(route('company.profile.update'), [
+                'company_name' => 'Angkor Technology',
+                'cover'        => $cover,
+            ])
+            ->assertRedirect();
+
+        $this->assertNotNull($this->company->fresh()->cover_path);
+
+        Sanctum::actingAs($this->companyUser);
+        $apiCover = \Illuminate\Http\UploadedFile::fake()->image('api-cover.png', 1200, 300);
+        $this->postJson('/api/company/profile', [
+            'company_name' => 'Angkor Technology',
+            'cover'        => $apiCover,
+        ])->assertStatus(200);
+
+        $this->assertNotNull($this->company->fresh()->cover_url);
+    }
 }

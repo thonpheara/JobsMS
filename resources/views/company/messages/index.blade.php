@@ -244,8 +244,15 @@
                             </div>
 
                             <!-- Quick Actions & Custom Stage Changer Dropdown -->
+                            <div class="flex items-center gap-2 flex-wrap shrink-0">
+                                @if($activeConversation->student_profile_id)
+                                    <a href="{{ route('company.students.show', $activeConversation->student_profile_id) }}"
+                                       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200/80 text-xs font-bold transition-colors">
+                                        <i class="fa-regular fa-user text-emerald-600 text-[11px]"></i>
+                                        <span>Profile</span>
+                                    </a>
+                                @endif
                             @if($activeApp)
-                                <div class="flex items-center gap-2 flex-wrap shrink-0">
                                     @if($hasResume)
                                         <a href="{{ route('company.applicants.resume', $activeApp) }}"
                                            target="_blank"
@@ -323,8 +330,8 @@
                                             </div>
                                         </form>
                                     @endif
-                                </div>
                             @endif
+                            </div>
                         </div>
 
                         <!-- Pinned Interview Context Banner (When Candidate Has an Interview) -->

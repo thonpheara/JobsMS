@@ -21,6 +21,7 @@ class CompanyProfile extends Model
         'location',
         'address',
         'logo_path',
+        'cover_path',
         'description',
         'contact_person',
         'contact_phone',
@@ -30,6 +31,7 @@ class CompanyProfile extends Model
 
     protected $appends = [
         'logo_url',
+        'cover_url',
         'has_logo',
         'initials',
     ];
@@ -66,6 +68,18 @@ class CompanyProfile extends Model
     {
         if ($this->logo_path) {
             return asset('storage/' . ltrim($this->logo_path, '/'));
+        }
+
+        return null;
+    }
+
+    /**
+     * Get resolved cover banner public URL.
+     */
+    public function getCoverUrlAttribute(): ?string
+    {
+        if ($this->cover_path) {
+            return asset('storage/' . ltrim($this->cover_path, '/'));
         }
 
         return null;

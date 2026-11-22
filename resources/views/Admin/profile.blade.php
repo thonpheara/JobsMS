@@ -13,7 +13,7 @@
                 <button @click="sidebarOpen = true" class="p-1.5 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100">
                     <i class="fa-solid fa-bars w-5 h-5"></i>
                 </button>
-                <span class="text-xs font-semibold text-slate-500">Internship Management System</span>
+                <span class="text-xs font-semibold text-slate-500">Job Management System</span>
             </div>
             <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
                 Administrator Profile &amp; Settings

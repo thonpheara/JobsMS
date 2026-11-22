@@ -382,7 +382,7 @@
                     @if($profileRoute)
                         <a href="{{ $profileRoute }}" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-gray-700 hover:text-emerald-700 hover:bg-emerald-50 font-medium transition-colors">
                             <i class="fa-solid fa-user-gear w-4 text-gray-400"></i>
-                            <span>Profile &amp; Settings</span>
+                            <span>Profile</span>
                         </a>
                         <a href="{{ $profileRoute }}?tab=security" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-gray-700 hover:text-emerald-700 hover:bg-emerald-50 font-medium transition-colors">
                             <i class="fa-solid fa-shield-halved w-4 text-gray-400"></i>
@@ -397,16 +397,20 @@
                         </a>
                         <a href="{{ route('student.messages.index') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-gray-700 hover:text-emerald-700 hover:bg-emerald-50 font-medium transition-colors">
                             <i class="fa-solid fa-comment-dots w-4 text-gray-400"></i>
-                            <span>Direct Messages</span>
+                            <span>Messages</span>
                         </a>
                     @elseif($role === 'company')
                         <a href="{{ route('company.applicants.index') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-gray-700 hover:text-emerald-700 hover:bg-emerald-50 font-medium transition-colors">
                             <i class="fa-solid fa-users-viewfinder w-4 text-gray-400"></i>
-                            <span>Applicant Pipeline</span>
+                            <span>Applicants</span>
+                        </a>
+                        <a href="{{ route('company.interviews.index') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-gray-700 hover:text-emerald-700 hover:bg-emerald-50 font-medium transition-colors">
+                            <i class="fa-solid fa-calendar-check w-4 text-gray-400"></i>
+                            <span>Interviews</span>
                         </a>
                         <a href="{{ route('company.messages.index') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-gray-700 hover:text-emerald-700 hover:bg-emerald-50 font-medium transition-colors">
                             <i class="fa-solid fa-comment-dots w-4 text-gray-400"></i>
-                            <span>Candidate Chat</span>
+                            <span>Messages</span>
                         </a>
                     @elseif($role === 'admin')
                         <a href="{{ route('admin.users.index') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-gray-700 hover:text-emerald-700 hover:bg-emerald-50 font-medium transition-colors">

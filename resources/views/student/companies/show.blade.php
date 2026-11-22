@@ -25,7 +25,16 @@
             $compInitials= $company->initials;
         @endphp
 
-        <div class="p-6 sm:p-8 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-6">
+        <div class="rounded-3xl bg-white border border-slate-200/80 shadow-xs overflow-hidden">
+            @if ($company->cover_path)
+                <div class="h-32 sm:h-44 w-full relative bg-gradient-to-r from-[#059669] via-emerald-600 to-teal-600">
+                    <img src="{{ asset('storage/' . ltrim($company->cover_path, '/')) }}"
+                         alt="{{ $company->company_name }} Cover"
+                         onerror="this.style.display='none';"
+                         class="w-full h-full object-cover">
+                </div>
+            @endif
+            <div class="p-6 sm:p-8 space-y-6">
             <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
                 
                 {{-- Logo + Name + Industry --}}
@@ -108,6 +117,7 @@
                         <span>{{ $company->isVerified() ? 'University Verified' : 'Under Moderation' }}</span>
                     </span>
                 </div>
+            </div>
             </div>
         </div>
 

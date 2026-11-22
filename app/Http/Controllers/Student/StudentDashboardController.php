@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Student;
 use App\Http\Controllers\Controller;
 use App\Models\Application;
 use App\Models\InternshipPost;
+use App\Models\Interview;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -23,11 +24,11 @@ class StudentDashboardController extends Controller
         $user = Auth::user();
         $student = $user->studentProfile ?? $user->studentProfile()->create();
 
-        // Recent applications (show 5)
+        // Recent applications (show 6)
         $recentApplications = Application::with(['internshipPost.companyProfile'])
             ->where('student_profile_id', $student?->id)
             ->latest()
-            ->take(5)
+            ->take(6)
             ->get();
 
         // Stats (4 comprehensive metrics)
@@ -106,7 +107,38 @@ class StudentDashboardController extends Controller
             $recommendedPosts = $recommendedPosts->concat($fallbackPosts);
         }
 
-        return view('student.dashboard', compact('student', 'recentApplications', 'stats', 'recommendedPosts'));
+        $savedJobsCount = $student ? $student->bookmarks()->count() : 0;
+
+        $upcomingInterviews = $student
+            ? Interview::with(['application.internshipPost.companyProfile'])
+                ->whereHas('application', fn ($q) => $q->where('student_profile_id', $student->id))
+                ->whereIn('status', ['scheduled', 'confirmed', 'reschedule_requested'])
+                ->orderBy('scheduled_at', 'asc')
+                ->take(3)
+                ->get()
+            : collect();
+
+        $readinessChecks = [
+            ['label' => 'Major', 'done' => !empty($student?->major)],
+            ['label' => 'GPA', 'done' => !empty($student?->gpa)],
+            ['label' => 'Skills', 'done' => !empty($student?->skills) && count((array) $student->skills) > 0],
+            ['label' => 'Resume PDF', 'done' => !empty($student?->resume_path)],
+        ];
+        $readinessDone = collect($readinessChecks)->where('done', true)->count();
+        $readiness = [
+            'percent' => (int) round(($readinessDone / count($readinessChecks)) * 100),
+            'missing' => collect($readinessChecks)->where('done', false)->pluck('label')->values()->all(),
+        ];
+
+        return view('student.dashboard', compact(
+            'student',
+            'recentApplications',
+            'stats',
+            'recommendedPosts',
+            'upcomingInterviews',
+            'savedJobsCount',
+            'readiness'
+        ));
     }
 
     /**

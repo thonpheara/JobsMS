@@ -6,6 +6,7 @@ use App\Models\Application;
 use App\Models\CompanyProfile;
 use App\Models\InternshipPost;
 use App\Models\Interview;
+use App\Models\StudentProfile;
 use App\Models\User;
 use App\Notifications\AppNotification;
 use Illuminate\Http\JsonResponse;
@@ -177,6 +178,7 @@ class CompanyApiController extends BaseApiController
             'contact_phone'  => ['nullable', 'string', 'max:50'],
             'description'    => ['nullable', 'string', 'max:5000'],
             'logo'           => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:4096'],
+            'cover'          => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:4096'],
         ]);
 
         if ($validator->fails()) {
@@ -200,6 +202,14 @@ class CompanyApiController extends BaseApiController
             }
 
             $data['logo_path'] = $request->file('logo')->store('companies/logos', 'public');
+        }
+
+        if ($request->hasFile('cover')) {
+            if ($company->cover_path && Storage::disk('public')->exists($company->cover_path)) {
+                Storage::disk('public')->delete($company->cover_path);
+            }
+
+            $data['cover_path'] = $request->file('cover')->store('company-covers', 'public');
         }
 
         $company->update($data);
@@ -906,5 +916,104 @@ class CompanyApiController extends BaseApiController
         }
 
         return $this->sendResponse($interview->fresh(), "Interview marked as {$request->status}.");
+    }
+
+    /**
+     * View a student applicant's full recruiter-facing profile.
+     */
+    public function showStudentProfile(Request $request, int $studentId): JsonResponse
+    {
+        $company = $request->user()->companyProfile;
+        if (!$company) {
+            return $this->sendError('Company profile not found.', [], 404);
+        }
+
+        $student = StudentProfile::with('user')->find($studentId);
+        if (!$student) {
+            return $this->sendError('Student profile not found.', [], 404);
+        }
+
+        $postIds = $company->internshipPosts()->pluck('id');
+        $applications = Application::with(['internshipPost', 'interview'])
+            ->where('student_profile_id', $student->id)
+            ->whereIn('internship_post_id', $postIds)
+            ->latest('applied_at')
+            ->get();
+
+        if ($applications->isEmpty()) {
+            return $this->sendError('You can only view profiles of students who have applied to your listings.', [], 403);
+        }
+
+        return $this->sendResponse([
+            'student'      => $student,
+            'applications' => $applications,
+        ], 'Student applicant profile retrieved.');
+    }
+
+    /**
+     * Get Company Hiring Reports with Job, Status, Date Range, and Search filters.
+     */
+    public function hiringReports(Request $request): JsonResponse
+    {
+        $company = $request->user()->companyProfile;
+        if (!$company) {
+            return $this->sendError('Company profile not found.', [], 404);
+        }
+
+        $postIds = $company->internshipPosts()->pluck('id');
+        $baseQuery = Application::whereIn('internship_post_id', $postIds);
+
+        $totalApplications = (clone $baseQuery)->count();
+        $totalShortlisted  = (clone $baseQuery)->whereIn('status', ['shortlisted', 'interviewed'])->count();
+        $totalAccepted     = (clone $baseQuery)->where('status', 'accepted')->count();
+        $hireRate          = $totalApplications > 0 ? round(($totalAccepted / $totalApplications) * 100, 1) : 0;
+
+        $query = Application::with(['studentProfile.user', 'internshipPost', 'interview'])
+            ->whereIn('internship_post_id', $postIds);
+
+        if ($postId = $request->input('post_id')) {
+            if ($postId !== 'all') {
+                $query->where('internship_post_id', $postId);
+            }
+        }
+
+        if ($status = $request->input('status')) {
+            if ($status !== 'all') {
+                $query->where('status', $status);
+            }
+        }
+
+        if ($dateFrom = $request->input('date_from')) {
+            $query->whereDate('applied_at', '>=', $dateFrom);
+        }
+
+        if ($dateTo = $request->input('date_to')) {
+            $query->whereDate('applied_at', '<=', $dateTo);
+        }
+
+        if ($search = trim((string) $request->input('search'))) {
+            $query->where(function ($q) use ($search) {
+                $q->whereHas('studentProfile', function ($sq) use ($search) {
+                    $sq->where('major', 'like', "%{$search}%")
+                       ->orWhereHas('user', fn ($uq) => $uq->where('name', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%"));
+                })->orWhereHas('internshipPost', function ($pq) use ($search) {
+                    $pq->where('title', 'like', "%{$search}%");
+                });
+            });
+        }
+
+        $perPage = min((int) ($request->input('per_page') ?: 20), 100);
+        $applications = $query->latest('applied_at')->paginate($perPage);
+
+        return $this->sendResponse([
+            'stats' => [
+                'total_applications' => $totalApplications,
+                'total_shortlisted'  => $totalShortlisted,
+                'total_accepted'     => $totalAccepted,
+                'hire_rate'          => $hireRate,
+                'filtered_count'     => $applications->total(),
+            ],
+            'applications' => $applications,
+        ], 'Company hiring report retrieved.');
     }
 }

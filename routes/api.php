@@ -92,6 +92,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/interviews', [CompanyApiController::class, 'storeInterview'])->name('api.company.interviews.store');
         Route::put('/interviews/{id}', [CompanyApiController::class, 'updateInterview'])->name('api.company.interviews.update');
         Route::patch('/interviews/{id}/status', [CompanyApiController::class, 'updateInterviewStatus'])->name('api.company.interviews.status');
+
+        // Student Profile View & Hiring Reports
+        Route::get('/students/{studentId}', [CompanyApiController::class, 'showStudentProfile'])->name('api.company.students.show');
+        Route::get('/reports', [CompanyApiController::class, 'hiringReports'])->name('api.company.reports');
     });
 
     // 4. In-App Direct Messaging & Chat

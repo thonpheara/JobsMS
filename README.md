@@ -1,4 +1,4 @@
-# 🎓 Internship Management System (IMS)
+# 💼 Job Management System (JMS)
 
 [![Laravel](https://img.shields.io/badge/Laravel-12.x-FF2D20?style=for-the-badge&logo=laravel&logoColor=white)](https://laravel.com)
 [![PHP](https://img.shields.io/badge/PHP-8.2%2B-777BB4?style=for-the-badge&logo=php&logoColor=white)](https://www.php.net)
@@ -9,10 +9,10 @@
 [![Alpine.js](https://img.shields.io/badge/Alpine.js-3.x-8BC0D0?style=for-the-badge&logo=alpinedotjs&logoColor=white)](https://alpinejs.dev)
 [![Vite](https://img.shields.io/badge/Vite-6.x-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev)
 [![MySQL](https://img.shields.io/badge/MySQL-8.x-4479A1?style=for-the-badge&logo=mysql&logoColor=white)](https://www.mysql.com)
-[![Tests](https://img.shields.io/badge/Tests-102%20Passed%20(540%20assertions)-success?style=for-the-badge&logo=checkmarx&logoColor=white)](https://github.com/thonpheara/InternshipMS)
+[![Tests](https://img.shields.io/badge/Tests-105%20Passed%20(561%20assertions)-success?style=for-the-badge&logo=checkmarx&logoColor=white)](https://github.com/thonpheara/InternshipMS)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
-**Internship Management System (IMS)** is an enterprise-grade full-stack platform and REST API backend built with **Laravel 12**, **Laravel Sanctum**, **Laravel Reverb WebSockets**, **Tailwind CSS**, **Alpine.js**, **Chart.js**, and **Vite**. It provides a unified ecosystem bridging university students, host employers, and university administrators to streamline internship discovery, candidate applications, corporate verification, job vacancy moderation, real-time bidirectional messaging, instant in-app alerts, placement reporting, and institutional analytics.
+**Job Management System (JMS)** is an enterprise-grade full-stack platform and REST API backend built with **Laravel 12**, **Laravel Sanctum**, **Laravel Reverb WebSockets**, **Tailwind CSS**, **Alpine.js**, **Chart.js**, and **Vite**. It provides a unified ecosystem bridging university students, host employers, and university administrators to streamline job & internship discovery, candidate applications, corporate verification, job vacancy moderation, real-time bidirectional messaging, instant in-app alerts, placement reporting, and institutional analytics.
 
 In addition to its responsive web portal, the system exposes a secure **Android Mobile REST API** with Bearer token authentication, enabling native Android applications (Java / Kotlin with Retrofit & OkHttp) to interact with all student, company, chat, and notification services.
 
@@ -111,7 +111,9 @@ In addition to its responsive web portal, the system exposes a secure **Android 
 - **📅 Dedicated Interview Management Portal (`/company/interviews`):** Centralized interview hub with 4 KPI cards (*Total*, *Today*, *Upcoming*, *Reschedule Requests*), status tabs, custom Alpine.js filters (*Job Listing*, *Meeting Format*, *Search*), custom Calendar & Time Picker dropdowns, 1-click *Reschedule / Update*, and *Post-Interview Evaluation* (*Mark Completed* / *Cancel*).
 - **📋 Enhanced Jobs & Internship Management (`/company/posts`):** Custom *Work Mode* and *Sort* dropdowns (*Newest*, *Most Applicants*, *Closing Soon*), **Filled Slots Progress Bar** (`Hired / Slots`), **Job Detail Preview Modal**, and **1-Click Close / Reopen** toggle (`POST /company/posts/{id}/toggle-close`).
 - **💬 Upgraded Candidate Messaging (`/company/messages`):** Stage filter pills (*All*, *Unread*, *Interviewing*, *Hired*), **Quick Stage Changer** dropdown in chat header, **Pinned Interview Context Banner** with direct video call link, date dividers, auto-linked URLs, and one-click Quick Reply templates (*Send Interview Details*, *Send Offer*).
-- **🏢 Upgraded Company Profile (`/company/profile`):** Dynamic verification status alerts (*Pending* / *Rejected* with admin feedback), **Profile Completeness Progress Bar** with missing-field jump chips, **Live Logo Preview**, **Student Public View Preview Modal**, custom **Industry Sector Dropdown**, character counter, and password strength meter.
+- **🏢 Upgraded Company Profile (`/company/profile`):** Dynamic verification status alerts (*Pending* / *Rejected* with admin feedback), **Profile Completeness Progress Bar** with missing-field jump chips, **Live Logo & Cover Banner Previews** (`cover_path`, `cover_url`), **Student Public View Preview Modal**, custom **Industry Sector Dropdown**, character counter, and password strength meter.
+- **👤 Candidate Profile Inspection (`/company/students/{student}`):** Dedicated recruiter-facing candidate profile view accessible from *Applicants*, *Interviews*, *Messages*, and *Hiring Reports*, displaying academic credentials, GPA, skills, bio, resume link, and application history.
+- **📊 Company Hiring Reports (`/company/reports`):** Filterable hiring audit table by *Job Listing*, *Status*, *From/To Date* (custom calendar dropdowns), and *Search*, with one-click **UTF-8 CSV Export** and **Print / Save PDF** view.
 - **🔔 Smart Role-Aware Sidebar Badges:** Real-time sidebar status pills and pending counters across all 3 portals — Admin (*Pending Companies*, *Pending Job Approvals*), Company (*Rejected/Pending Jobs*, *New Applicants*, *Reschedule Requests*, *Verification Badge*), and Student (*Unconfirmed Interview Invitations*).
 - **⚡ Real-Time Candidate Chat (WebSockets):** Seamless live messaging channel with applicants featuring instant message dispatch, live incoming chat bubbles, and auto-updated unread counts.
 - **Company Security & Password Management:** Dedicated "Security & Password" tab for recruiter password changes with authentication validation and visibility toggles.
@@ -230,6 +232,8 @@ All API endpoints return a predictable, strongly-typed JSON envelope:
 | **`POST`** | `/api/company/interviews` | `role:company` | Schedule a new interview session (`application_id`, `scheduled_at`, `meeting_type`) |
 | **`PUT`** | `/api/company/interviews/{id}` | `role:company` | Reschedule or update interview details and notify candidate |
 | **`PATCH`** | `/api/company/interviews/{id}/status` | `role:company` | Mark interview as `completed` or `cancelled` with optional evaluation notes |
+| **`GET`** | `/api/company/students/{studentId}` | `role:company` | View full recruiter-facing student profile and application history |
+| **`GET`** | `/api/company/reports` | `role:company` | Get company hiring report `stats` and filtered applications (`post_id`, `status`, `date_from`, `date_to`, `search`) |
 | **`POST`** | `/api/student/interviews/{id}/confirm` | `role:student` | Student confirms interview attendance |
 | **`POST`** | `/api/student/interviews/{id}/reschedule` | `role:student` | Student requests interview reschedule with conflict explanation |
 | **`GET`** | `/api/conversations` | `auth:sanctum` | List all active direct messaging conversations |
@@ -304,7 +308,7 @@ curl -X GET http://127.0.0.1:8000/api/student/companies/3 \
 
 ## 🏗️ System Architecture & Workflow
 
-Internship Management System implements a multi-tier **Model-View-Controller (MVC)** architectural pattern built on the Laravel 12 framework. The architecture enforces strict separation of concerns across presentation (Web Blade + Android Mobile), routing & middleware, application controllers, domain models, notifications, and relational persistence.
+Job Management System implements a multi-tier **Model-View-Controller (MVC)** architectural pattern built on the Laravel 12 framework. The architecture enforces strict separation of concerns across presentation (Web Blade + Android Mobile), routing & middleware, application controllers, domain models, notifications, and relational persistence.
 
 For detailed technical specifications, refer to [docs/SYSTEM_ARCHITECTURE.md](docs/SYSTEM_ARCHITECTURE.md).
 

@@ -115,6 +115,7 @@ Route::prefix('company')->as('company.')->middleware(['auth', 'role:company'])->
     Route::patch('/applicants/{application}/status', [ApplicantReviewController::class, 'updateStatus'])->name('applicants.status.patch');
     Route::post('/applicants/{application}/interview', [ApplicantReviewController::class, 'scheduleInterview'])->name('applicants.interview.store');
     Route::get('/applicants/{application}/resume', [ApplicantReviewController::class, 'resume'])->name('applicants.resume');
+    Route::get('/students/{student}', [ApplicantReviewController::class, 'showStudentProfile'])->name('students.show');
 
     // Interview Management
     Route::get('/interviews', [InterviewManagementController::class, 'index'])->name('interviews.index');
@@ -126,6 +127,11 @@ Route::prefix('company')->as('company.')->middleware(['auth', 'role:company'])->
     Route::get('/messages', [CompanyMessageController::class, 'index'])->name('messages.index');
     Route::post('/messages/{conversation}', [CompanyMessageController::class, 'store'])->name('messages.store');
     Route::get('/messages/start/{application}', [CompanyMessageController::class, 'startFromApplication'])->name('messages.start');
+
+    // Hiring Reports (CSV & Print)
+    Route::get('/reports', [\App\Http\Controllers\Company\ReportController::class, 'index'])->name('reports.index');
+    Route::get('/reports/export-csv', [\App\Http\Controllers\Company\ReportController::class, 'exportCsv'])->name('reports.exportCsv');
+    Route::get('/reports/print', [\App\Http\Controllers\Company\ReportController::class, 'print'])->name('reports.print');
 });
 
 // ==========================================

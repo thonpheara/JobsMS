@@ -25,6 +25,7 @@
 
         $completenessItems = [
             ['label' => 'Logo', 'filled' => !empty($company->logo_path), 'tab' => 'company'],
+            ['label' => 'Cover', 'filled' => !empty($company->cover_path), 'tab' => 'company'],
             ['label' => 'Industry', 'filled' => !empty($company->industry), 'tab' => 'company'],
             ['label' => 'Location', 'filled' => !empty($company->location), 'tab' => 'company'],
             ['label' => 'Hiring Lead', 'filled' => !empty($company->contact_person), 'tab' => 'contact'],
@@ -43,6 +44,10 @@
             tab: '{{ $errors->has('current_password') || $errors->has('password') || request('tab') === 'security' ? 'security' : request('tab', 'all') }}',
             logoPreview: null,
             logoFileName: '',
+            logoError: '',
+            coverPreview: null,
+            coverFileName: '',
+            coverError: '',
             isDirty: false,
             previewModalOpen: false,
             descLength: {{ mb_strlen(old('description', $company->description ?? '')) }},
@@ -55,7 +60,13 @@
             },
             handleLogoChange(event) {
                 const file = event.target.files[0];
+                this.logoError = '';
                 if (!file) return;
+                if (file.size > 2 * 1024 * 1024) {
+                    this.logoError = 'Logo image must be under 2MB (selected: ' + (file.size / (1024 * 1024)).toFixed(1) + 'MB).';
+                    this.clearLogoSelection();
+                    return;
+                }
                 this.logoFileName = file.name;
                 this.isDirty = true;
                 const reader = new FileReader();
@@ -70,6 +81,30 @@
                 if (this.$refs.logoInput) {
                     this.$refs.logoInput.value = '';
                 }
+            },
+            handleCoverChange(event) {
+                const file = event.target.files[0];
+                this.coverError = '';
+                if (!file) return;
+                if (file.size > 4 * 1024 * 1024) {
+                    this.coverError = 'Cover image must be under 4MB (selected: ' + (file.size / (1024 * 1024)).toFixed(1) + 'MB).';
+                    this.clearCoverSelection();
+                    return;
+                }
+                this.coverFileName = file.name;
+                this.isDirty = true;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    this.coverPreview = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            },
+            clearCoverSelection() {
+                this.coverPreview = null;
+                this.coverFileName = '';
+                if (this.$refs.coverInput) {
+                    this.$refs.coverInput.value = '';
+                }
             }
          }">
 
@@ -80,7 +115,7 @@
                     <button @click="sidebarOpen = true" class="p-1.5 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100">
                         <i class="fa-solid fa-bars w-5 h-5"></i>
                     </button>
-                    <span class="text-xs font-semibold text-slate-500">Internship Management System</span>
+                    <span class="text-xs font-semibold text-slate-500">Job Management System</span>
                 </div>
                 <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
                     Host Company Profile
@@ -450,6 +485,70 @@
                                     <i class="fa-solid fa-circle-info"></i>
                                     <span>Previewing <span class="font-semibold" x-text="logoFileName"></span> — click Save Changes to apply.</span>
                                 </p>
+                                <p x-show="logoError" x-text="logoError" class="text-[11px] text-rose-600 font-semibold mt-1.5"></p>
+                            </div>
+                        </div>
+
+                        <!-- Cover Banner Upload Row with Live Preview -->
+                        <div class="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80 space-y-3">
+                            <div class="flex items-center justify-between gap-2">
+                                <div>
+                                    <span class="block text-xs font-bold text-slate-900">Profile Cover Banner</span>
+                                    <span class="block text-[11px] text-slate-500 mt-0.5">Recommended wide image (PNG, JPG, WEBP, max 4MB, e.g. 1200×300px).</span>
+                                </div>
+                                <div class="flex items-center gap-2 shrink-0">
+                                    <button type="button"
+                                            x-show="coverPreview"
+                                            @click="clearCoverSelection()"
+                                            class="text-[11px] font-semibold text-rose-600 hover:text-rose-700 cursor-pointer">
+                                        Remove selected
+                                    </button>
+                                    @if ($company->cover_path)
+                                        <button type="submit"
+                                                name="delete_cover"
+                                                value="1"
+                                                onclick="return confirm('Remove your company cover banner?');"
+                                                class="px-2.5 py-1 text-[11px] font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg border border-rose-200 transition-colors cursor-pointer">
+                                            <i class="fa-solid fa-trash-can mr-1"></i> Remove
+                                        </button>
+                                    @endif
+                                </div>
+                            </div>
+
+                            <!-- Cover Preview Box -->
+                            <div class="relative h-28 rounded-xl overflow-hidden border border-slate-200 bg-gradient-to-r from-[#059669] via-emerald-600 to-teal-600">
+                                <template x-if="coverPreview">
+                                    <img :src="coverPreview" alt="New Cover Preview" class="w-full h-full object-cover">
+                                </template>
+                                <template x-if="!coverPreview">
+                                    <div class="w-full h-full">
+                                        @if ($company->cover_path)
+                                            <img src="{{ asset('storage/' . ltrim($company->cover_path, '/')) }}"
+                                                 alt="{{ $company->company_name }} Cover"
+                                                 onerror="this.style.display='none';"
+                                                 class="w-full h-full object-cover">
+                                        @else
+                                            <div class="w-full h-full flex items-center justify-center text-white/80 text-xs font-medium gap-2">
+                                                <i class="fa-regular fa-image text-base"></i>
+                                                <span>Default Emerald Gradient Banner</span>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </template>
+                            </div>
+
+                            <div>
+                                <input type="file"
+                                       x-ref="coverInput"
+                                       name="cover"
+                                       accept="image/*"
+                                       @change="handleCoverChange($event)"
+                                       class="block w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-[11px] file:font-semibold file:bg-[#059669] file:text-white hover:file:bg-[#047857] cursor-pointer">
+                                <p x-show="coverPreview" class="text-[11px] text-[#059669] font-medium mt-1.5 flex items-center gap-1">
+                                    <i class="fa-solid fa-circle-info"></i>
+                                    <span>Previewing <span class="font-semibold" x-text="coverFileName"></span> — click Save Changes to apply.</span>
+                                </p>
+                                <p x-show="coverError" x-text="coverError" class="text-[11px] text-rose-600 font-semibold mt-1.5"></p>
                             </div>
                         </div>
 
@@ -851,13 +950,25 @@
             <div @click.outside="previewModalOpen = false"
                  class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-2xl w-full overflow-hidden">
                 <!-- Banner -->
-                <div class="h-24 bg-gradient-to-r from-[#059669] via-emerald-600 to-teal-600 relative px-6 pt-4 flex items-start justify-between">
-                    <span class="px-2.5 py-1 rounded-full bg-white/20 backdrop-blur-xs text-white text-[11px] font-semibold">
+                <div class="h-32 sm:h-36 bg-gradient-to-r from-[#059669] via-emerald-600 to-teal-600 relative px-6 pt-4 flex items-start justify-between overflow-hidden">
+                    <template x-if="coverPreview">
+                        <img :src="coverPreview" alt="Cover Preview" class="absolute inset-0 w-full h-full object-cover">
+                    </template>
+                    @if ($company->cover_path)
+                        <template x-if="!coverPreview">
+                            <img src="{{ asset('storage/' . ltrim($company->cover_path, '/')) }}"
+                                 alt="{{ $company->company_name }} Cover"
+                                 onerror="this.style.display='none';"
+                                 class="absolute inset-0 w-full h-full object-cover">
+                        </template>
+                    @endif
+                    <div class="absolute inset-0 bg-slate-900/20"></div>
+                    <span class="relative z-10 px-3 py-1 rounded-full bg-slate-900/55 backdrop-blur-sm text-white text-[11px] font-semibold shadow-xs">
                         <i class="fa-regular fa-eye mr-1"></i> Student Public View Preview
                     </span>
                     <button type="button"
                             @click="previewModalOpen = false"
-                            class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition-colors cursor-pointer">
+                            class="relative z-10 w-8 h-8 rounded-full bg-slate-900/55 hover:bg-slate-900/75 backdrop-blur-sm text-white flex items-center justify-center transition-colors cursor-pointer shadow-xs">
                         <i class="fa-solid fa-xmark text-sm"></i>
                     </button>
                 </div>
@@ -865,7 +976,7 @@
                 <!-- Body -->
                 <div class="px-6 pb-6 relative z-10">
                     <div class="-mt-10 flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-5">
-                        <div class="flex items-end gap-4">
+                        <div class="flex items-start gap-4">
                             <template x-if="logoPreview">
                                 <img :src="logoPreview" class="w-20 h-20 rounded-2xl object-cover border-4 border-white shadow-md bg-white">
                             </template>
@@ -886,7 +997,7 @@
                                     @endif
                                 </div>
                             </template>
-                            <div class="pb-1">
+                            <div class="pt-12">
                                 <div class="flex items-center gap-2 flex-wrap">
                                     <h3 class="text-lg font-bold text-slate-900">{{ $company->company_name ?: 'Your Company' }}</h3>
                                     @if ($verificationStatus === 'verified')
@@ -914,25 +1025,44 @@
                             <i class="fa-solid fa-user-tie w-4 text-slate-400"></i>
                             <span>Hiring Lead: <strong class="text-slate-800">{{ $company->contact_person ?: 'Not specified' }}</strong></span>
                         </div>
-                        @if ($company->address)
-                            <div class="flex items-center gap-2 text-slate-600 sm:col-span-2">
-                                <i class="fa-solid fa-map-pin w-4 text-slate-400"></i>
-                                <span>{{ $company->address }}</span>
-                            </div>
-                        @endif
+                        <div class="flex items-center gap-2 text-slate-600">
+                            <i class="fa-solid fa-map-pin w-4 text-slate-400"></i>
+                            <span class="truncate">{{ $company->address ?: 'Street address not specified' }}</span>
+                        </div>
+                        <div class="flex items-center gap-2 text-slate-600">
+                            <i class="fa-solid fa-phone w-4 text-slate-400"></i>
+                            <span>{{ $company->contact_phone ?: 'Phone not specified' }}</span>
+                        </div>
                         @if ($company->website)
-                            <div class="flex items-center gap-2 text-slate-600 sm:col-span-2">
+                            <div class="flex items-center gap-2 text-slate-600">
                                 <i class="fa-solid fa-globe w-4 text-slate-400"></i>
                                 <a href="{{ $company->website }}" target="_blank" class="text-[#059669] font-semibold hover:underline truncate">
                                     {{ $company->website }}
                                 </a>
                             </div>
                         @endif
+                        <div class="flex items-center gap-2 text-slate-600">
+                            <i class="fa-regular fa-calendar-check w-4 text-slate-400"></i>
+                            <span>Partner Since: <strong class="text-slate-800">{{ $company->created_at ? $company->created_at->format('M Y') : 'N/A' }}</strong></span>
+                        </div>
                     </div>
 
                     <div>
                         <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">About Organization &amp; Culture</h4>
                         <p class="text-xs text-slate-600 leading-relaxed whitespace-pre-line">{{ $company->description ?: 'No company description added yet. Add an overview in Corporate Presence to help students learn about your team.' }}</p>
+                    </div>
+
+                    <!-- Modal Footer -->
+                    <div class="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
+                        <span class="text-[11px] text-slate-400 flex items-center gap-1.5">
+                            <i class="fa-solid fa-circle-info"></i>
+                            <span>This is how students view your organization profile.</span>
+                        </span>
+                        <button type="button"
+                                @click="previewModalOpen = false"
+                                class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition-colors cursor-pointer shrink-0">
+                            Close Preview
+                        </button>
                     </div>
                 </div>
             </div>

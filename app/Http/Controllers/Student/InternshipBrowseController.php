@@ -301,16 +301,57 @@ class InternshipBrowseController extends Controller
     /**
      * List all submitted applications for this student.
      */
-    public function applications(): View
+    public function applications(Request $request): View
     {
         $student = Auth::user()->studentProfile;
 
-        $applications = Application::with(['internshipPost.companyProfile', 'interview'])
-            ->where('student_profile_id', $student?->id)
+        $baseQuery = Application::with(['internshipPost.companyProfile', 'interview'])
+            ->where('student_profile_id', $student?->id);
+
+        $tabCounts = [
+            'all'           => (clone $baseQuery)->count(),
+            'in_review'     => (clone $baseQuery)->whereIn('status', ['pending', 'under_review', 'shortlisted'])->count(),
+            'interviews'    => (clone $baseQuery)->where(function ($q) {
+                $q->where('status', 'interviewed')
+                  ->orWhereHas('interview', fn ($iq) => $iq->whereIn('status', ['scheduled', 'confirmed', 'reschedule_requested']));
+            })->count(),
+            'action_needed' => (clone $baseQuery)->whereHas('interview', function ($iq) {
+                $iq->where('status', 'scheduled')->where('confirmed_by_student', false);
+            })->count(),
+            'accepted'      => (clone $baseQuery)->where('status', 'accepted')->count(),
+            'closed'        => (clone $baseQuery)->whereIn('status', ['rejected', 'withdrawn'])->count(),
+        ];
+
+        $query = clone $baseQuery;
+        $tab = $request->input('tab', 'all');
+
+        if ($tab === 'in_review') {
+            $query->whereIn('status', ['pending', 'under_review', 'shortlisted']);
+        } elseif ($tab === 'interviews') {
+            $query->where(function ($q) {
+                $q->where('status', 'interviewed')
+                  ->orWhereHas('interview', fn ($iq) => $iq->whereIn('status', ['scheduled', 'confirmed', 'reschedule_requested']));
+            });
+        } elseif ($tab === 'action_needed') {
+            $query->whereHas('interview', fn ($iq) => $iq->where('status', 'scheduled')->where('confirmed_by_student', false));
+        } elseif ($tab === 'accepted') {
+            $query->where('status', 'accepted');
+        } elseif ($tab === 'closed') {
+            $query->whereIn('status', ['rejected', 'withdrawn']);
+        }
+
+        if ($search = trim((string) $request->input('search'))) {
+            $query->whereHas('internshipPost', function ($pq) use ($search) {
+                $pq->where('title', 'like', "%{$search}%")
+                   ->orWhereHas('companyProfile', fn ($cq) => $cq->where('company_name', 'like', "%{$search}%"));
+            });
+        }
+
+        $applications = $query
             ->latest('applied_at')
             ->paginate(10)
             ->withQueryString();
 
-        return view('student.applications.index', compact('applications'));
+        return view('student.applications.index', compact('applications', 'tabCounts'));
     }
 }

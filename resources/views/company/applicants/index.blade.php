@@ -610,8 +610,10 @@
                                             <!-- Name, Major & GPA -->
                                             <div class="min-w-0 flex-1">
                                                 <div class="flex items-center justify-between gap-1">
-                                                    <h4 class="font-extrabold text-slate-900 text-xs truncate group-hover:text-emerald-700 transition-colors" 
-                                                        x-text="app.candidate_name"></h4>
+                                                    <a :href="app.profile_url"
+                                                       @click.stop
+                                                       class="font-extrabold text-slate-900 text-xs truncate hover:text-emerald-700 hover:underline transition-colors"
+                                                       x-text="app.candidate_name"></a>
                                                     <span class="px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-800 text-[10px] font-black shrink-0" 
                                                           x-text="'GPA ' + app.gpa"></span>
                                                 </div>
@@ -934,9 +936,10 @@
                                             </div>
                                             <div class="min-w-0 flex-1">
                                                 <div class="flex items-center gap-2 flex-wrap">
-                                                    <span class="font-extrabold text-slate-900 text-sm group-hover:text-emerald-700 transition-colors">
+                                                    <a href="{{ route('company.students.show', $app->student_profile_id) }}"
+                                                       class="font-extrabold text-slate-900 text-sm hover:text-emerald-700 hover:underline transition-colors">
                                                         {{ $candUser->name }}
-                                                    </span>
+                                                    </a>
                                                     @if ($app->studentProfile->gpa !== null)
                                                         <span class="inline-flex items-center px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200/70 text-[10px] font-black shrink-0">
                                                             GPA {{ number_format((float)$app->studentProfile->gpa, 2) }}
@@ -1139,9 +1142,11 @@
                     </table>
                 </div>
 
-                <div class="p-4 border-t border-slate-100 bg-white shrink-0">
-                    {{ $applications->links() }}
-                </div>
+                @if ($applications->hasPages())
+                    <div class="p-4 border-t border-slate-100 bg-white shrink-0">
+                        {{ $applications->links() }}
+                    </div>
+                @endif
             @else
                 <div class="flex-1 flex flex-col items-center justify-center py-16 text-center text-slate-600 space-y-3">
                     <i class="fa-solid fa-users w-12 h-12 mx-auto text-slate-300"></i>

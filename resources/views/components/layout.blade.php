@@ -9,7 +9,7 @@
         <meta name="user-name" content="{{ Auth::user()->name }}">
         <meta name="user-role" content="{{ Auth::user()->role }}">
     @endauth
-    <title>Internship Management System</title>
+    <title>Job Management System</title>
     <!-- Google Fonts: Plus Jakarta Sans & Kantumruy Pro -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

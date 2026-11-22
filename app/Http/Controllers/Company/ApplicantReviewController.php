@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Company;
 use App\Http\Controllers\Controller;
 use App\Models\Application;
 use App\Models\InternshipPost;
+use App\Models\StudentProfile;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -103,6 +104,7 @@ class ApplicantReviewController extends Controller
                 'id' => $app->id,
                 'status' => $app->status,
                 'candidate_name' => $candUser?->name ?? 'Unknown Student',
+                'profile_url' => $app->student_profile_id ? route('company.students.show', $app->student_profile_id) : null,
                 'candidate_initials' => $candInitials,
                 'avatar_url' => $candAvatar,
                 'major' => $app->studentProfile?->major ?? 'N/A',
@@ -377,5 +379,26 @@ class ApplicantReviewController extends Controller
         }
 
         return back()->with('success', "Interview scheduled for {$studentUser?->name} on {$dateFormatted}. Invitation sent via in-app notification & email.");
+    }
+
+    /**
+     * Display a student applicant's full recruiter-facing profile.
+     */
+    public function showStudentProfile(StudentProfile $student): View
+    {
+        $company = Auth::user()->companyProfile;
+        $postIds = InternshipPost::where('company_profile_id', $company?->id)->pluck('id');
+
+        $applications = Application::with(['internshipPost', 'interview'])
+            ->where('student_profile_id', $student->id)
+            ->whereIn('internship_post_id', $postIds)
+            ->latest('applied_at')
+            ->get();
+
+        abort_if($applications->isEmpty(), 403, 'You can only view profiles of students who have applied to your listings.');
+
+        $student->load('user');
+
+        return view('company.students.show', compact('student', 'applications'));
     }
 }

@@ -18,5 +18,14 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->render(function (\Illuminate\Http\Exceptions\PostTooLargeException $e, \Illuminate\Http\Request $request) {
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Uploaded file is too large for the server limit. Please choose a smaller file.',
+                ], 413);
+            }
+
+            return redirect()->back()->with('error', 'The uploaded file is too large for the server limit (max 4MB). Please choose a smaller image.');
+        });
     })->create();

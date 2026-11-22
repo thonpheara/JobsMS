@@ -11,7 +11,7 @@
 
                 <!-- Subtitle Pill / System Title -->
                 <p class="pt-2 text-[11px] font-bold uppercase tracking-wider text-[#059669]">
-                    INTERNSHIP MANAGEMENT SYSTEM
+                    JOB MANAGEMENT SYSTEM
                 </p>
 
                 <!-- Page Heading -->

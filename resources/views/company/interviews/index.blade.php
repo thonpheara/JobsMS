@@ -490,7 +490,13 @@
                                 <div class="min-w-0 space-y-1">
                                     <div class="flex items-center gap-2 flex-wrap">
                                         <h3 class="text-sm sm:text-base font-bold text-slate-900">
-                                            {{ $candidate?->name ?? 'Unknown Candidate' }}
+                                            @if($app?->student_profile_id)
+                                                <a href="{{ route('company.students.show', $app->student_profile_id) }}" class="hover:text-[#059669] hover:underline transition-colors">
+                                                    {{ $candidate?->name ?? 'Unknown Candidate' }}
+                                                </a>
+                                            @else
+                                                {{ $candidate?->name ?? 'Unknown Candidate' }}
+                                            @endif
                                         </h3>
 
                                         <!-- Interview Status Pill -->
@@ -658,9 +664,11 @@
                 @endforeach
             </div>
 
-            <div class="pt-2">
-                {{ $interviews->links() }}
-            </div>
+            @if ($interviews->hasPages())
+                <div class="pt-2">
+                    {{ $interviews->links() }}
+                </div>
+            @endif
         @else
             <!-- Empty State -->
             <div class="p-10 sm:p-14 rounded-3xl bg-white border border-slate-200 text-center space-y-3">

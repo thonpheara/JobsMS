@@ -64,7 +64,7 @@
             <a href="{{ route('student.posts.index') }}" 
                class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm {{ request()->routeIs('student.posts.*') ? $activeClass : $inactiveClass }}">
                 <i class="fa-solid fa-briefcase w-4.5 h-4.5"></i>
-                Browse Internships
+                Browse Jobs
             </a>
             <a href="{{ route('student.applications.index') }}" 
                class="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm {{ request()->routeIs('student.applications.*') ? $activeClass : $inactiveClass }}">
@@ -198,6 +198,11 @@
                         {{ $unread }}
                     </span>
                 @endif
+            </a>
+            <a href="{{ route('company.reports.index') }}" 
+               class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm {{ request()->routeIs('company.reports.*') ? $activeClass : $inactiveClass }}">
+                <i class="fa-solid fa-file-invoice w-4.5 h-4.5"></i>
+                <span>Reports</span>
             </a>
             <a href="{{ route('company.profile') }}" 
                class="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm {{ request()->routeIs('company.profile') ? $activeClass : $inactiveClass }}">

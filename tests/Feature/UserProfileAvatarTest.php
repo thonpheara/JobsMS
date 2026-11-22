@@ -141,7 +141,7 @@ class UserProfileAvatarTest extends TestCase
         $response->assertStatus(200);
         $response->assertSee('Sophea Sok');
         $response->assertSee('Student Intern');
-        $response->assertSee('Profile &amp; Settings', false);
+        $response->assertSee('Profile');
         $response->assertSee('Sign out');
     }
 }

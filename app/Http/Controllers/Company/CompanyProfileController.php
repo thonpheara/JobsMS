@@ -44,6 +44,7 @@ class CompanyProfileController extends Controller
             'address' => ['nullable', 'string', 'max:500'],
             'description' => ['nullable', 'string', 'max:2000'],
             'logo' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp,svg', 'max:2048'],
+            'cover' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:4096'],
         ]);
 
         $updateData = [
@@ -77,6 +78,39 @@ class CompanyProfileController extends Controller
                     @mkdir($targetDir, 0755, true);
                 }
                 @copy(storage_path('app/public/' . $updateData['logo_path']), public_path('storage/' . $updateData['logo_path']));
+            } catch (\Throwable $e) {
+                // Ignore mirror failure; fallback route in web.php handles it
+            }
+        }
+
+        // Process cover banner removal or upload
+        if ($request->boolean('delete_cover') && $company->cover_path) {
+            if (Storage::disk('public')->exists($company->cover_path)) {
+                Storage::disk('public')->delete($company->cover_path);
+            }
+            $oldCoverPublic = public_path('storage/' . $company->cover_path);
+            if (file_exists($oldCoverPublic)) {
+                @unlink($oldCoverPublic);
+            }
+            $updateData['cover_path'] = null;
+        } elseif ($request->hasFile('cover')) {
+            if ($company->cover_path) {
+                if (Storage::disk('public')->exists($company->cover_path)) {
+                    Storage::disk('public')->delete($company->cover_path);
+                }
+                $oldCoverPublic = public_path('storage/' . $company->cover_path);
+                if (file_exists($oldCoverPublic)) {
+                    @unlink($oldCoverPublic);
+                }
+            }
+            $updateData['cover_path'] = $request->file('cover')->store('company-covers', 'public');
+
+            try {
+                $targetDir = public_path('storage/company-covers');
+                if (!file_exists($targetDir)) {
+                    @mkdir($targetDir, 0755, true);
+                }
+                @copy(storage_path('app/public/' . $updateData['cover_path']), public_path('storage/' . $updateData['cover_path']));
             } catch (\Throwable $e) {
                 // Ignore mirror failure; fallback route in web.php handles it
             }
