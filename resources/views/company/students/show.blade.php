@@ -20,7 +20,7 @@
                     <span>Back to Applicants</span>
                 </a>
                 <div>
-                    <h1 class="text-lg sm:text-xl font-bold text-slate-900">Candidate Profile</h1>
+                    <h1 class="text-lg sm:text-xl font-bold text-slate-900">Applicant Profile</h1>
                     <p class="text-xs text-slate-500">Academic credentials, technical skills, and application history with your organization.</p>
                 </div>
             </div>
