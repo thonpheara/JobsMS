@@ -546,7 +546,7 @@ class CompanyApiController extends BaseApiController
     }
 
     /**
-     * Update application status (reviewed, shortlisted, accepted, rejected).
+     * Update application status (pending, under_review, shortlisted, interviewed, accepted, rejected).
      */
     public function updateApplicantStatus(Request $request, int $id): JsonResponse
     {
@@ -561,8 +561,17 @@ class CompanyApiController extends BaseApiController
             return $this->sendError('Applicant not found.', [], 404);
         }
 
+        if ($application->status === 'withdrawn') {
+            return $this->sendError('Cannot update a withdrawn application.', [], 422);
+        }
+
+        $statusInput = $request->input('status');
+        if ($statusInput === 'reviewed') {
+            $request->merge(['status' => 'under_review']);
+        }
+
         $validator = Validator::make($request->all(), [
-            'status'        => ['required', 'in:reviewed,shortlisted,accepted,rejected'],
+            'status'        => ['required', 'in:pending,under_review,shortlisted,interviewed,accepted,rejected'],
             'company_notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
@@ -572,12 +581,12 @@ class CompanyApiController extends BaseApiController
 
         $application->update([
             'status'        => $request->status,
-            'company_notes' => $request->company_notes ?? $application->company_notes,
+            'company_notes' => $request->has('company_notes') ? $request->company_notes : $application->company_notes,
             'reviewed_at'   => now(),
         ]);
 
         // Notify student about application status change
-        $statusLabel = ucfirst($request->status);
+        $statusLabel = ucfirst(str_replace('_', ' ', $request->status));
         $studentUser = $application->studentProfile?->user;
 
         if ($studentUser) {
