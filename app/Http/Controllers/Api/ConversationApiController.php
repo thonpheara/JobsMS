@@ -26,6 +26,7 @@ class ConversationApiController extends BaseApiController
             'companyProfile.user',
             'latestMessage',
             'application.internshipPost',
+            'application.interview',
         ]);
 
         if ($user->isStudent()) {
@@ -49,11 +50,19 @@ class ConversationApiController extends BaseApiController
         // Enhance list items with unread count and recipient info for mobile
         $data = $conversations->map(function ($convo) use ($user) {
             $recipient = $convo->getRecipientFor($user);
+            $app = $convo->application;
+            $interview = $app?->interview;
 
             return [
                 'id'                 => $convo->id,
                 'subject'            => $convo->subject,
                 'application_id'     => $convo->application_id,
+                'application_status' => $app?->status ?? 'pending',
+                'student_profile_id' => $convo->student_profile_id,
+                'company_profile_id' => $convo->company_profile_id,
+                'student_major'      => $convo->studentProfile?->major,
+                'student_gpa'        => $convo->studentProfile?->gpa,
+                'has_interview'      => $interview !== null && $interview->status !== 'cancelled',
                 'last_message_at'    => $convo->last_message_at,
                 'unread_count'       => $convo->unreadCountFor($user),
                 'recipient'          => [
@@ -68,9 +77,10 @@ class ConversationApiController extends BaseApiController
                     'body'       => $convo->latestMessage->body,
                     'sender_id'  => $convo->latestMessage->sender_id,
                     'is_me'      => $convo->latestMessage->sender_id === $user->id,
+                    'is_read'    => (bool) $convo->latestMessage->is_read,
                     'created_at' => $convo->latestMessage->created_at,
                 ] : null,
-                'post_title'         => $convo->application?->internshipPost?->title,
+                'post_title'         => $app?->internshipPost?->title,
             ];
         });
 
@@ -88,6 +98,7 @@ class ConversationApiController extends BaseApiController
             'studentProfile.user',
             'companyProfile.user',
             'application.internshipPost',
+            'application.interview',
         ])->find($id);
 
         if (!$conversation) {
@@ -107,11 +118,21 @@ class ConversationApiController extends BaseApiController
                 'read_at' => now(),
             ]);
 
+        // Also mark related bell notifications as read (matching Web MessageController)
+        $user->unreadNotifications
+            ->filter(fn ($n) => str_contains($n->data['action_url'] ?? '', 'conversation_id=' . $conversation->id))
+            ->markAsRead();
+
         $messages = $conversation->messages()
             ->with('sender')
             ->oldest()
             ->get()
             ->map(function ($msg) use ($user) {
+                $msgDate = $msg->created_at;
+                $dateLabel = $msgDate
+                    ? ($msgDate->isToday() ? 'Today' : ($msgDate->isYesterday() ? 'Yesterday' : $msgDate->format('M d, Y')))
+                    : 'Today';
+
                 return [
                     'id'               => $msg->id,
                     'conversation_id'  => $msg->conversation_id,
@@ -121,25 +142,53 @@ class ConversationApiController extends BaseApiController
                     'is_read'          => (bool) $msg->is_read,
                     'created_at'       => $msg->created_at,
                     'created_at_time'  => $msg->created_at?->format('h:i A'),
+                    'date_label'       => $dateLabel,
                     'is_me'            => $msg->sender_id === $user->id,
                 ];
             });
 
         $recipient = $conversation->getRecipientFor($user);
+        $app = $conversation->application;
+        $interview = $app?->interview;
+        $appResumePath = $app?->getEffectiveResumePath();
+        $hasResume = $appResumePath && (
+            \Illuminate\Support\Facades\Storage::disk('local')->exists($appResumePath) ||
+            \Illuminate\Support\Facades\Storage::disk('public')->exists($appResumePath)
+        );
 
         return $this->sendResponse([
             'conversation' => [
-                'id'             => $conversation->id,
-                'subject'        => $conversation->subject,
-                'application_id' => $conversation->application_id,
-                'post_title'     => $conversation->application?->internshipPost?->title,
-                'recipient'      => [
+                'id'                 => $conversation->id,
+                'subject'            => $conversation->subject,
+                'application_id'     => $conversation->application_id,
+                'application_status' => $app?->status ?? 'pending',
+                'company_notes'      => $app?->company_notes,
+                'has_resume'         => (bool) $hasResume,
+                'student_profile_id' => $conversation->student_profile_id,
+                'company_profile_id' => $conversation->company_profile_id,
+                'student_major'      => $conversation->studentProfile?->major,
+                'student_gpa'        => $conversation->studentProfile?->gpa,
+                'company_contact'    => $conversation->companyProfile?->contact_person,
+                'post_title'         => $app?->internshipPost?->title,
+                'post_location'      => $app?->internshipPost?->location,
+                'recipient'          => [
                     'id'           => $recipient?->id,
                     'name'         => $recipient?->name,
                     'display_name' => $recipient?->display_name,
                     'avatar_url'   => $recipient?->avatar_url,
                     'role'         => $recipient?->role,
                 ],
+                'interview'          => ($interview && $interview->status !== 'cancelled') ? [
+                    'id'                   => $interview->id,
+                    'scheduled_at'         => $interview->scheduled_at?->format('Y-m-d H:i:s'),
+                    'scheduled_human'      => $interview->scheduled_at?->format('D, M d, Y \a\t g:i A'),
+                    'meeting_type'         => $interview->meeting_type,
+                    'location_or_link'     => $interview->location_or_link,
+                    'notes'                => $interview->notes,
+                    'status'               => $interview->status,
+                    'confirmed_by_student' => (bool) $interview->confirmed_by_student,
+                    'reschedule_reason'    => $interview->reschedule_reason,
+                ] : null,
             ],
             'messages'     => $messages,
         ], 'Messages loaded successfully.');
