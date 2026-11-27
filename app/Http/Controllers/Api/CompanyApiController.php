@@ -139,6 +139,7 @@ class CompanyApiController extends BaseApiController
         $activePostsCount = $company->internshipPosts()->where('status', 'approved')->count();
         $fields = [
             $company->logo_path,
+            $company->cover_path,
             $company->industry,
             $company->location,
             $company->contact_person,
@@ -201,7 +202,15 @@ class CompanyApiController extends BaseApiController
                 Storage::disk('public')->delete($company->logo_path);
             }
 
-            $data['logo_path'] = $request->file('logo')->store('companies/logos', 'public');
+            $data['logo_path'] = $request->file('logo')->store('company-logos', 'public');
+            try {
+                $targetDir = public_path('storage/company-logos');
+                if (!file_exists($targetDir)) {
+                    @mkdir($targetDir, 0755, true);
+                }
+                @copy(storage_path('app/public/' . $data['logo_path']), public_path('storage/' . $data['logo_path']));
+            } catch (\Throwable $e) {
+            }
         }
 
         if ($request->hasFile('cover')) {
@@ -210,9 +219,22 @@ class CompanyApiController extends BaseApiController
             }
 
             $data['cover_path'] = $request->file('cover')->store('company-covers', 'public');
+            try {
+                $targetDir = public_path('storage/company-covers');
+                if (!file_exists($targetDir)) {
+                    @mkdir($targetDir, 0755, true);
+                }
+                @copy(storage_path('app/public/' . $data['cover_path']), public_path('storage/' . $data['cover_path']));
+            } catch (\Throwable $e) {
+            }
         }
 
         $company->update($data);
+
+        // Keep User account name in sync with company name (matching Web CompanyProfileController)
+        if (!empty($data['company_name'])) {
+            $request->user()->update(['name' => $data['company_name']]);
+        }
 
         return $this->sendResponse($company->fresh(), 'Company profile updated successfully.');
     }
