@@ -19,11 +19,11 @@
     <div class="h-16 px-6 flex items-center justify-between border-b border-[#E5E7EB] bg-white/60">
         <a href="/" class="flex items-center gap-2.5 group">
             <div class="w-10 h-10 rounded-xl bg-[#059669] flex items-center justify-center text-white shadow-xs group-hover:scale-105 transition-transform">
-                <i class="fa-solid fa-graduation-cap w-5 h-5 text-base font-bold"></i>
+                <i class="fa-solid fa-briefcase w-5 h-5 text-base font-bold"></i>
             </div>
             <div>
-                <span class="text-lg font-extrabold tracking-tight text-[#111827] flex items-center gap-1">
-                    Job & Intern<span class="text-[#059669]">ship</span>
+                <span class="text-lg font-extrabold tracking-tight text-[#111827] flex items-center">
+                    Jobs<span class="text-[#059669]">MS</span>
                 </span>
                 <span class="block text-[10px] font-semibold text-gray-500 tracking-wider uppercase">Management System</span>
             </div>

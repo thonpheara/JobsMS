@@ -64,7 +64,7 @@ class CompanyPostDuplicateTest extends TestCase
         $response = $this->actingAs($this->companyUser)
             ->post(route('company.posts.duplicate', $this->post));
 
-        $this->assertDatabaseCount('internship_posts', 2);
+        $this->assertDatabaseCount('job_posts', 2);
 
         $duplicated = InternshipPost::where('id', '!=', $this->post->id)->first();
         $this->assertNotNull($duplicated);
@@ -98,7 +98,7 @@ class CompanyPostDuplicateTest extends TestCase
             ->post(route('company.posts.duplicate', $this->post));
 
         $response->assertStatus(403);
-        $this->assertDatabaseCount('internship_posts', 1);
+        $this->assertDatabaseCount('job_posts', 1);
     }
 
     /**
@@ -110,7 +110,7 @@ class CompanyPostDuplicateTest extends TestCase
             ->post(route('company.posts.duplicate', $this->post));
 
         $response->assertRedirect(route('student.dashboard'));
-        $this->assertDatabaseCount('internship_posts', 1);
+        $this->assertDatabaseCount('job_posts', 1);
     }
 
     /**
@@ -131,7 +131,7 @@ class CompanyPostDuplicateTest extends TestCase
                 ],
             ]);
 
-        $this->assertDatabaseCount('internship_posts', 2);
+        $this->assertDatabaseCount('job_posts', 2);
     }
 
     /**

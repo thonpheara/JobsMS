@@ -73,7 +73,7 @@ class CompanyPostDraftModeTest extends TestCase
         $response->assertRedirect(route('company.posts.index'));
         $response->assertSessionHas('success');
 
-        $this->assertDatabaseHas('internship_posts', [
+        $this->assertDatabaseHas('job_posts', [
             'company_profile_id' => $this->company->id,
             'title'              => 'Junior DevOps Engineer Intern',
             'status'             => 'draft',
@@ -110,7 +110,7 @@ class CompanyPostDraftModeTest extends TestCase
         $response->assertRedirect(route('company.posts.index'));
         $response->assertSessionHas('success');
 
-        $this->assertDatabaseHas('internship_posts', [
+        $this->assertDatabaseHas('job_posts', [
             'company_profile_id' => $this->company->id,
             'title'              => 'Data Analyst Intern',
             'status'             => 'pending_approval',

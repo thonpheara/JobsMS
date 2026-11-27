@@ -69,7 +69,7 @@ class JobAndInternshipOpportunityTest extends TestCase
 
         $response->assertRedirect(route('company.posts.index'));
 
-        $this->assertDatabaseHas('internship_posts', [
+        $this->assertDatabaseHas('job_posts', [
             'company_profile_id' => $this->company->id,
             'title'              => 'Software QA Intern',
             'opportunity_type'   => 'internship',
@@ -105,7 +105,7 @@ class JobAndInternshipOpportunityTest extends TestCase
 
         $response->assertRedirect(route('company.posts.index'));
 
-        $this->assertDatabaseHas('internship_posts', [
+        $this->assertDatabaseHas('job_posts', [
             'company_profile_id' => $this->company->id,
             'title'              => 'Associate Laravel Developer',
             'opportunity_type'   => 'full_time',
@@ -358,7 +358,7 @@ class JobAndInternshipOpportunityTest extends TestCase
                 ],
             ]);
 
-        $this->assertDatabaseHas('internship_posts', [
+        $this->assertDatabaseHas('job_posts', [
             'company_profile_id' => $this->company->id,
             'title'              => 'Contract Backend Engineer',
             'opportunity_type'   => 'contract',

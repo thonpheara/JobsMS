@@ -13,6 +13,8 @@ class InternshipPost extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected $table = 'job_posts';
+
     protected $fillable = [
         'company_profile_id',
         'title',
