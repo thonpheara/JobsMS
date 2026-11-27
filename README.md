@@ -12,20 +12,24 @@
 [![Tests](https://img.shields.io/badge/Tests-105%20Passed%20(561%20assertions)-success?style=for-the-badge&logo=checkmarx&logoColor=white)](https://github.com/thonpheara/InternshipMS)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
-**Job Management System (JMS)** is an enterprise-grade full-stack platform and REST API backend built with **Laravel 12**, **Laravel Sanctum**, **Laravel Reverb WebSockets**, **Tailwind CSS**, **Alpine.js**, **Chart.js**, and **Vite**. It provides a unified ecosystem bridging university students, host employers, and university administrators to streamline job & internship discovery, candidate applications, corporate verification, job vacancy moderation, real-time bidirectional messaging, instant in-app alerts, placement reporting, and institutional analytics.
+**Job Management System (JMS)** is an enterprise-grade full-stack platform and REST API backend built with **Laravel 12**, **Laravel Sanctum**, **Laravel Reverb WebSockets**, **Tailwind CSS**, **Alpine.js**, **Chart.js**, and **Vite**. It provides a unified ecosystem bridging university students, host employers, and university administrators to streamline job & internship discovery, candidate applications, corporate verification, job vacancy moderation, interview scheduling, real-time bidirectional messaging, instant in-app alerts, hiring & placement reporting, and institutional analytics.
 
-In addition to its responsive web portal, the system exposes a secure **Android Mobile REST API** with Bearer token authentication, enabling native Android applications (Java / Kotlin with Retrofit & OkHttp) to interact with all student, company, chat, and notification services.
+The platform serves **three distinct roles** across Web and Mobile:
+1. **🎓 Student:** Full Web Portal + Android Mobile REST API (`Laravel Sanctum`).
+2. **🏢 Host Company:** Full Web Portal + Android Mobile REST API (`Laravel Sanctum`).
+3. **🛡️ University Administrator:** **Web Portal ONLY** (all Admin moderation, user CRUD, analytics, and audit reporting run exclusively on the Web Portal — there is **no Admin Android API**).
 
 🔗 **GitHub Repository:** [https://github.com/thonpheara/InternshipMS.git](https://github.com/thonpheara/InternshipMS.git)
 
 ---
 
 ## 📋 Table of Contents
+- [🧭 Platform Access Overview](#-platform-access-overview)
 - [✨ Key Features & Role Portals](#-key-features--role-portals)
   - [🎓 Student Portal](#-student-portal)
   - [🏢 Host Company Portal](#-host-company-portal)
-  - [🛡️ University Administrator Portal](#-university-administrator-portal)
-  - [🔔 Universal In-App Notification System](#-universal-in-app-notification-system)
+  - [🛡️ University Administrator Portal (Web Only)](#-university-administrator-portal-web-only)
+  - [🔔 Universal Real-Time In-App Notification System](#-universal-real-time-in-app-notification-system)
 - [📱 Android Mobile REST API Suite](#-android-mobile-rest-api-suite)
   - [Authentication & Token Lifecycle](#authentication--token-lifecycle)
   - [Standardized JSON Response Format](#standardized-json-response-format)
@@ -38,14 +42,26 @@ In addition to its responsive web portal, the system exposes a secure **Android 
   - [4. Layered Architectural Breakdown](#4-layered-architectural-breakdown)
 - [💻 System Requirements](#-system-requirements)
 - [🚀 Step-by-Step Installation & Setup](#-step-by-step-installation--setup)
+- [🔐 Security & Environment Configuration](#-security--environment-configuration)
 - [🏃 Running the Application Locally](#-running-the-application-locally)
 - [📱 Android Emulator & Mobile Network Configuration](#-android-emulator--mobile-network-configuration)
+- [🚢 Production Deployment Checklist](#-production-deployment-checklist)
 - [🧪 Running Automated Tests](#-running-automated-tests)
 - [🔑 Default Login Credentials & Access](#-default-login-credentials--access)
 - [📂 Project Directory Structure](#-project-directory-structure)
 - [🔄 Updating the Project After Changes](#-updating-the-project-after-changes)
 - [🛠️ Useful Commands & Troubleshooting](#️-useful-commands--troubleshooting)
 - [📄 License](#-license)
+
+---
+
+## 🧭 Platform Access Overview
+
+| Role | Web Portal (`routes/web.php`) | Android Mobile API (`routes/api.php`) | Authentication Mechanism |
+| :--- | :---: | :---: | :--- |
+| **🎓 Student** | ✅ Full Access | ✅ Full Access (`/api/student/*`, `/api/conversations/*`, `/api/notifications/*`) | Session Cookie (Web) / Sanctum Bearer Token (Mobile) |
+| **🏢 Host Company** | ✅ Full Access | ✅ Full Access (`/api/company/*`, `/api/conversations/*`, `/api/notifications/*`) | Session Cookie (Web) / Sanctum Bearer Token (Mobile) |
+| **🛡️ University Admin** | ✅ Full Access | ❌ **No Mobile API** (Web Portal Only) | Session Cookie + `auth` & `role:admin` Middleware |
 
 ---
 
@@ -63,15 +79,17 @@ In addition to its responsive web portal, the system exposes a secure **Android 
   - **Verified Employers Only:** Filter to display only opportunities from university-verified corporate partners.
   - **Sorting:** *Newest*, *Impending Deadline*, *Salary (High to Low)*, *Salary (Low to High)*.
 - **❤️ Saved Jobs & Bookmarks System:** Bookmark vacancies with zero page reload using Alpine.js AJAX and manage saved opportunities in a dedicated `/student/bookmarks` interface with real-time sidebar count badges.
-- **✨ Smart Recommendation Engine:** Dynamic matching algorithm (`InternshipPost::recommendedFor($student)`) matching student degree major and technical skills against job requirements with relevance scoring and visual **Smart Match** chips (🎓 Major match, 🟢 Skill badges).
+- **✨ Smart Recommendation Engine:** Dynamic matching algorithm (`InternshipPost::recommendedFor($student)`) matching student degree major and technical skills against job requirements with relevance scoring, **Deadline Countdown** badges (*Closes Today*, *X days left*), Opportunity Type & Work Mode chips, and visual **Smart Match** badges.
+- **📊 Enhanced Student Dashboard (`/student/dashboard`):** Includes **Career Readiness** completeness bar, **Upcoming Interview Invitations** banner with 1-click *Confirm Attendance* & *Join Call*, clickable KPI summary cards, and mini 5-step application progress bars.
+- **📋 Filterable My Applications (`/student/applications`):** Status filter tabs (*All*, *In Review*, *Interviews*, *Action Needed*, *Accepted*, *Rejected / Withdrawn*) with live counts, search by role/company, and conditional pagination.
 - **Application Submission & Tailored Resumes:** Apply with statement of intent and choose between using default profile resume or attaching a **custom tailored CV** specific to that job vacancy.
 - **👁️ Application Submission & Cover Letter Preview Modal:** In-app inspection modal to review submitted cover letters (with word counter and one-click copy), view embedded PDF resumes in an interactive reader, and read recruiter feedback without page redirects.
 - **Application Progress Timeline:** Interactive 5-step visual progress bar component (`<x-application-timeline />`) tracking each application from *Applied* ➔ *Under Review* ➔ *Shortlisted* ➔ *Interviewed* ➔ *Accepted*, with dedicated banners for *Withdrawn* and *Rejected* states.
 - **↺ Self-Service Application Withdrawal:** Students can withdraw active pending applications with an animated Alpine.js confirmation modal, automatically notifying host employers and preventing accidental duplicate entries while allowing future re-applications.
-- **🏢 Company Public Profile Pages (`/student/companies/{id}`):** Dedicated public host organization profiles featuring company branding, sector, headquarters, accreditation badges, and an active vacancy catalog.
+- **🏢 Company Public Profile Pages (`/student/companies/{id}`):** Dedicated public host organization profiles featuring company cover banner (`cover_url`), logo, sector, headquarters, accreditation badges, and an active vacancy catalog.
 - **Dedicated Resume Management:** Upload and manage personal PDF resumes with direct browser-native previewing, downloading, and isolated file deletion (`storage/app/resumes/{student_id}/`).
 - **⚡ Real-Time Direct Messaging (Laravel Reverb & Echo):** Instant peer-to-peer messaging with recruiters powered by WebSockets. Instant asynchronous sending (zero page reload), auto-scrolling, live message bubble streaming, and real-time conversation list updates.
-- **Profile Picture & Avatar Customization:** Upload, preview, and update student profile picture with instant live preview and dynamic initials fallback.
+- **Profile Picture, Completeness & Recruiter Preview (`/student/profile`):** Live avatar preview, **Profile Completeness %** progress bar with missing-field jump chips, interactive **Skill Tag Chips** with quick suggestions, **Preview as Recruiter** modal, bio character counter, and password strength meter.
 - **Academic Profile Configuration:** Manage university student ID, major, department, cumulative GPA, key technical skills, and biographical details.
 - **Account Security & Password Management:** Dedicated "Security & Password" tab to change password securely with current password verification, confirmation checks, and eye toggle visibility.
 - **⚡ Instant In-App Alerts & Toasts:** Real-time bell notifications and floating interactive toast popups whenever an employer reviews an application, advances status, or sends a message.
@@ -119,7 +137,10 @@ In addition to its responsive web portal, the system exposes a secure **Android 
 - **Company Security & Password Management:** Dedicated "Security & Password" tab for recruiter password changes with authentication validation and visibility toggles.
 - **⚡ Instant In-App Alerts:** Real-time WebSocket notifications when students submit applications or when administrators verify corporate accounts and approve job listings.
 
-### 🛡️ University Administrator Portal
+### 🛡️ University Administrator Portal (Web Only)
+> [!NOTE]
+> All University Administrator operations (company verification, job moderation, user CRUD, and institutional placement reports) are **Web Portal ONLY** (`routes/web.php` protected by `auth` and `role:admin`). There is **no Admin Android API**.
+
 - **Executive KPI Dashboard:** Real-time metrics overview displaying Total User Accounts, Active Student Interns, Registered Companies, Approved Listings, and Pending Moderation queues.
 - **Dual Analytics Engine (Chart.js & Alpine.js):**
   - **Monthly Application & Placement Trends (Bar Chart):** Interactive monthly bar chart comparing **Total Applications Submitted** vs. **Accepted Placements**, with dynamic toggling between **This Year** and **Last Year** data.
@@ -157,6 +178,9 @@ In addition to its responsive web portal, the system exposes a secure **Android 
 ## 📱 Android Mobile REST API Suite
 
 The system includes a dedicated, production-ready REST API built with **Laravel Sanctum** specifically engineered for mobile client consumption (Android Native with Kotlin / Java, Retrofit 2, OkHttp, or Jetpack Compose).
+
+> [!IMPORTANT]
+> **API Scope:** The Android REST API (`routes/api.php`) supports **🎓 Student** and **🏢 Host Company** roles only. **University Administrator** accounts authenticate and operate exclusively through the **Web Portal** — no Admin mobile authentication or Admin API endpoints exist.
 
 ### Authentication & Token Lifecycle
 - Uses **Personal Access Tokens** (`Bearer <token>`).
@@ -211,10 +235,10 @@ All API endpoints return a predictable, strongly-typed JSON envelope:
 | **`GET`** | `/api/student/applications` | `role:student` | List all submitted student applications and review stages |
 | **`GET`** | `/api/student/applications/{id}` | `role:student` | Detailed application status tracker (review feedback, timeline) |
 | **`POST`** | `/api/student/applications/{id}/withdraw` | `role:student` | Self-service application withdrawal (pending review only) |
-| **`GET`** | `/api/student/companies/{id}` | `role:student` | View host company public profile, verification badge & active vacancies |
+| **`GET`** | `/api/student/companies/{id}` | `role:student` | View host company public profile (`cover_url`, `logo_url`, verification badge) & active vacancies |
 | **`GET`** | `/api/company/dashboard` | `role:company` | Employer dashboard stats, vacancy counts, and pipeline summary |
-| **`GET`** | `/api/company/profile` | `role:company` | Get host employer corporate profile details (`active_posts_count`, `completeness_percent`) |
-| **`POST`** | `/api/company/profile` | `role:company` | Update company description, website, contact, and logo |
+| **`GET`** | `/api/company/profile` | `role:company` | Get host employer corporate profile details (`active_posts_count`, `completeness_percent`, `cover_url`) |
+| **`POST`** | `/api/company/profile` | `role:company` | Update company description, website, contact, logo (`logo`), and cover banner (`cover`) |
 | **`GET`** | `/api/company/posts` | `role:company` | List company vacancies with `work_mode`, `sort`, and `accepted_count` |
 | **`POST`** | `/api/company/posts` | `role:company` | Create vacancy (`opportunity_type`, `experience_level`, `salary_max`, `duration_weeks`) |
 | **`GET`** | `/api/company/posts/{id}` | `role:company` | Inspect vacancy details |
@@ -403,26 +427,28 @@ sequenceDiagram
 
 ### 3. Role-Based Access Control (RBAC) Matrix
 
-| Feature / Resource | Guest | 🎓 Student | 🏢 Company | 🛡️ Admin |
-| :--- | :---: | :---: | :---: | :---: |
-| **Browse Landing Page & Login** | ✅ | ✅ | ✅ | ✅ |
-| **Self-Service Registration (Web & API)** | ✅ | ✅ | ✅ | ❌ |
-| **Mobile Android REST API Endpoints** | ✅ *(auth)* | ✅ | ✅ | ❌ |
-| **In-App Notification Bell & Drawer** | ❌ | ✅ | ✅ | ✅ |
-| **Student Profile & PDF Resume Management** | ❌ | ✅ | ❌ | ❌ |
-| **Profile Password Management & Security** | ❌ | ✅ | ✅ | ✅ |
-| **Profile Avatar Upload & Customization** | ❌ | ✅ | ✅ | ✅ |
-| **Browse Approved Jobs & Submit Applications** | ❌ | ✅ | ❌ | ❌ |
-| **Direct Messaging (Active Applications)** | ❌ | ✅ | ✅ | ❌ |
-| **Company Profile & Corporate Logo Management** | ❌ | ❌ | ✅ | ❌ |
-| **Post Vacancies (Subject to Moderation)** | ❌ | ❌ | ✅ | ❌ |
-| **Applicant Pipeline & In-Browser Resume Preview** | ❌ | ❌ | ✅ | ❌ |
-| **Candidate Status Update (Accept/Reject)** | ❌ | ❌ | ✅ | ❌ |
-| **Company Verification Queue (Approve/Reject)** | ❌ | ❌ | ❌ | ✅ |
-| **Job Post Moderation Queue (Approve/Reject)** | ❌ | ❌ | ❌ | ✅ |
-| **User Management (CRUD Students & Employers)** | ❌ | ❌ | ❌ | ✅ |
-| **Dual Analytics (Bar Trends + Outcomes Donut)** | ❌ | ❌ | ❌ | ✅ |
-| **Placement & Outcome Reports (CSV & Print)** | ❌ | ❌ | ❌ | ✅ |
+| Feature / Resource | Platform | Guest | 🎓 Student | 🏢 Company | 🛡️ Admin |
+| :--- | :--- | :---: | :---: | :---: | :---: |
+| **Browse Landing Page & Web Login** | Web Portal | ✅ | ✅ | ✅ | ✅ |
+| **Self-Service Registration (Student / Company)** | Web + Mobile API | ✅ | ✅ | ✅ | ❌ |
+| **Android Mobile REST API (`auth:sanctum`)** | Mobile API | ✅ *(auth)* | ✅ | ✅ | ❌ *(Web Only)* |
+| **In-App Notification Bell & Drawer** | Web + Mobile API | ❌ | ✅ | ✅ | ✅ *(Web)* |
+| **Student Profile, Skills & PDF Resume** | Web + Mobile API | ❌ | ✅ | ❌ | ❌ |
+| **Profile Password & Avatar Management** | Web + Mobile API | ❌ | ✅ | ✅ | ✅ *(Web)* |
+| **Browse Approved Jobs & Submit Applications** | Web + Mobile API | ❌ | ✅ | ❌ | ❌ |
+| **Saved Jobs / Bookmarks & Withdrawals** | Web + Mobile API | ❌ | ✅ | ❌ | ❌ |
+| **Interview Confirm / Request Reschedule** | Web + Mobile API | ❌ | ✅ | ❌ | ❌ |
+| **Direct Messaging (Active Applications)** | Web + Mobile API | ❌ | ✅ | ✅ | ❌ |
+| **Company Profile, Logo & Cover Banner** | Web + Mobile API | ❌ | ❌ | ✅ | ❌ |
+| **Post, Edit, Duplicate, Close/Reopen Jobs** | Web + Mobile API | ❌ | ❌ | ✅ | ❌ |
+| **Applicant Pipeline, Bulk Update & Candidate Profile** | Web + Mobile API | ❌ | ❌ | ✅ | ❌ |
+| **Interview Management (Schedule / Reschedule / Complete / Cancel)** | Web + Mobile API | ❌ | ❌ | ✅ | ❌ |
+| **Company Hiring Reports (Filter, CSV & Print)** | Web + Mobile API *(JSON)* | ❌ | ❌ | ✅ | ❌ |
+| **Company Verification Queue (Approve/Reject)** | Web Portal Only | ❌ | ❌ | ❌ | ✅ |
+| **Job Post Moderation Queue (Approve/Reject)** | Web Portal Only | ❌ | ❌ | ❌ | ✅ |
+| **User Management (CRUD Students & Employers)** | Web Portal Only | ❌ | ❌ | ❌ | ✅ |
+| **University Analytics (Trends + Outcomes Donut)** | Web Portal Only | ❌ | ❌ | ❌ | ✅ |
+| **Institutional Placement Reports (CSV & Print)** | Web Portal Only | ❌ | ❌ | ❌ | ✅ |
 
 ### 4. Layered Architectural Breakdown
 
@@ -513,7 +539,7 @@ cd InternshipMS
    ```
 3. **Verify Database & WebSockets parameters in `.env`:**
    ```env
-   APP_NAME="Internship Management System"
+   APP_NAME="Job Management System"
    APP_ENV=local
    APP_KEY=base64:...
    APP_DEBUG=true
@@ -567,6 +593,18 @@ php artisan storage:link
 
 > [!NOTE]
 > Even if OS-level symbolic links are restricted (e.g. Windows non-admin terminals), the built-in streaming fallback route (`/storage/{path}`) in `routes/web.php` automatically handles file serving and PDF downloads seamlessly!
+
+---
+
+## 🔐 Security & Environment Configuration
+
+- **Authentication & Role Isolation:**
+  - **Web Portal:** Protected by Laravel session cookies, CSRF tokens (`@csrf`), and `RoleMiddleware` (`role:student`, `role:company`, `role:admin`). Inactive or suspended accounts are blocked during login.
+  - **Mobile REST API:** Protected by **Laravel Sanctum** (`auth:sanctum`) and role guards (`role:student`, `role:company`). **Administrator** accounts have no mobile API surface.
+- **Cross-Tenant Data Isolation:** Controllers verify ownership before returning or mutating resources (e.g., companies can only inspect resumes/profiles of students who applied to their own listings, and cannot modify another company's posts or interviews).
+- **Private Resume Storage:** Student CVs are stored on the private `local` disk (`storage/app/resumes/`) and streamed only after authorization checks—never exposed as raw public directory listings.
+- **Upload Limits & Large Payload Handling:** Logos (`max:2048` KB), company cover banners (`max:4096` KB), and resumes (`max:5120` KB) are validated both client-side and server-side. `bootstrap/app.php` catches `PostTooLargeException` cleanly (returning JSON `413` for API or a friendly flash error on Web). For larger uploads, adjust `upload_max_filesize` and `post_max_size` in `php.ini`.
+- **Sensitive Files:** Never commit `.env`, `storage/`, or `vendor/` to version control. Rotate `APP_KEY` and `REVERB_APP_SECRET` in production.
 
 ---
 
@@ -634,6 +672,33 @@ To test on a physical Android smartphone connected to the same Wi-Fi network:
 
 ---
 
+## 🚢 Production Deployment Checklist
+
+Before deploying **Job Management System (JMS)** to a live production server:
+
+- [ ] Set `APP_ENV=production`, `APP_DEBUG=false`, and a valid `HTTPS` `APP_URL` in `.env`.
+- [ ] Configure production MySQL credentials, mail driver (SMTP), and SSL/TLS certificates (enforce `HTTPS` for both Web and Android API).
+- [ ] Disable `android:usesCleartextTraffic` in the Android app when targeting production `HTTPS` endpoints.
+- [ ] Install optimized dependencies and build frontend assets:
+  ```bash
+  composer install --no-dev --optimize-autoloader
+  npm ci && npm run build
+  ```
+- [ ] Run migrations and create the public storage symlink:
+  ```bash
+  php artisan migrate --force
+  php artisan storage:link
+  ```
+- [ ] Cache framework configuration, routes, and Blade views:
+  ```bash
+  php artisan config:cache
+  php artisan route:cache
+  php artisan view:cache
+  ```
+- [ ] Run `php artisan queue:work` and `php artisan reverb:start` under a process manager (e.g., **Supervisor** or **systemd**) so notifications and real-time chat stay online continuously.
+
+---
+
 ## 🧪 Running Automated Tests
 
 The application includes a comprehensive automated test suite built on **PHPUnit** covering Authentication, In-App Notifications, Resume Upload/Preview, Administrator Features, Company Verification, Placement Reports, User Management CRUD, Profile Avatars, and the Android Mobile REST API:
@@ -652,14 +717,16 @@ php artisan test
 - **`PostStatusSecurityTest` (4 tests):** Strict job post status authorization (companies cannot self-approve pending posts or manipulate post states).
 - **`ResumeManagementTest` (4 tests):** Student profile PDF resume upload, browser preview, file deletion, and employer applicant resume preview.
 - **`UserManagementTest` (8 tests):** Admin user index, Chart.js analytics dashboard metrics, student creation, company creation, user updates, soft-deletes, and RBAC guard tests.
-- **`CompanyKanbanTest` (6 tests):** Company applicant review board with Kanban data preload, drag-and-drop AJAX PATCH stage transition, standard form PUT updates, cross-company applicant authorization guards, student access restrictions (302 web redirect / 403 JSON), and immutability of withdrawn candidate applications.
+- **`CompanyKanbanTest` (8 tests):** Company applicant review board with Kanban data preload, drag-and-drop AJAX PATCH stage transition, standard form PUT updates, cross-company applicant authorization guards, student access restrictions (302 web redirect / 403 JSON), immutability of withdrawn candidate applications, bulk applicant status updates, and reschedule request filtering.
 - **`CompanyPostDuplicateTest` (5 tests):** Web post duplication with title copy and draft status, auto-redirect to edit modal, cross-company authorization rejection (403), student access rejection, mobile REST API duplicate endpoint, and unauthorized API clone rejection (404).
 - **`CompanyPostDraftModeTest` (6 tests):** Saving posts as private draft without admin notification, submitting directly for review with admin notification dispatch, one-click draft submission from listings table, isolation of drafts from admin moderation queues, invisibility of drafts to student candidate browsing, and mobile REST API draft management.
 - **`CompanyInterviewSchedulingTest` (8 tests):** Company scheduling online video / in-person interviews via web modal, auto-advancing status to interviewed, student notification dispatch (mail + DB + broadcast), student attendance confirmation via web, student reschedule request with conflict reason, cross-company scheduling authorization security (403), isolation of withdrawn candidate applications, and full end-to-end scheduling/confirm/reschedule workflow via Android REST API.
-- **`CompanyDashboardAnalyticsTest` (5 tests):** Company dashboard chart rendering (Bar chart of top 5 posts & Donut chart of applicant status breakdown), empty state handling when no candidacies exist, strict isolation from other companies' post analytics, unauthorized access restrictions, and mobile Android REST API analytics payload verification.
+- **`CompanyDashboardAnalyticsTest` (6 tests):** Company dashboard chart rendering (Bar chart of top 5 posts & Donut chart of applicant status breakdown), empty state handling when no candidacies exist, strict isolation from other companies' post analytics, upcoming interviews & reschedule alerts, unauthorized access restrictions, and mobile Android REST API analytics payload verification.
+- **`JobAndInternshipOpportunityTest` (7 tests):** Unified Job (*Full-Time*, *Part-Time*, *Contract*) and Internship posting validation, experience levels, salary min/max range filtering, opportunity type tabs, and student API multi-filter queries.
+- **`CompanyPortalUpdatesTest` (9 tests):** Dedicated Interview Management (`/company/interviews`) filtering & lifecycle (schedule, reschedule, complete/cancel, 403 cross-company guard), 1-click job close/reopen (`toggle-close`), real company verification status & active listing counts, candidate profile view (`/company/students/{student}` & `/api/company/students/{id}`), company hiring reports (Web, CSV, Print & API), and company cover banner upload (Web & API).
 - **`ExampleTest` (1 test):** Application baseline and unit integrity.
 
-**Result:** `86 passed (424 assertions)` (100% green suite)
+**Result:** `105 passed (561 assertions)` (100% green suite across all 17 test classes)
 
 ---
 
@@ -704,24 +771,31 @@ InternshipMS/
 │   │   │   │   ├── NotificationApiController.php      # Mobile notification list, count, mark-read
 │   │   │   │   └── StudentApiController.php           # Mobile student dashboard, resume, jobs, apply
 │   │   │   ├── Company/
-│   │   │   │   ├── ApplicantReviewController.php      # Pipeline board & status updates
+│   │   │   │   ├── ApplicantReviewController.php      # Pipeline board, bulk status, candidate profile & resume
 │   │   │   │   ├── CompanyDashboardController.php     # Company KPI stats & pipeline breakdown
-│   │   │   │   ├── CompanyProfileController.php       # Corporate profile & logo
-│   │   │   │   ├── InternshipPostController.php       # Job posting CRUD
-│   │   │   │   └── MessageController.php              # Real-time direct candidate messaging
+│   │   │   │   ├── CompanyProfileController.php       # Corporate profile, logo & cover banner
+│   │   │   │   ├── InternshipPostController.php       # Job posting CRUD, duplicate, submit & toggle-close
+│   │   │   │   ├── InterviewManagementController.php  # Dedicated interview scheduling, reschedule & outcomes
+│   │   │   │   ├── MessageController.php              # Real-time direct candidate messaging
+│   │   │   │   └── ReportController.php               # Company hiring reports, CSV export & Print view
 │   │   │   ├── Student/
-│   │   │   │   ├── InternshipBrowseController.php     # Job search, filters, apply
+│   │   │   │   ├── BookmarkController.php             # Saved jobs / bookmarks toggle & list
+│   │   │   │   ├── CompanyPublicController.php        # Public host company profile view
+│   │   │   │   ├── InternshipBrowseController.php     # Job search, multi-filters, apply, withdraw & tracker
+│   │   │   │   ├── InterviewResponseController.php    # Student interview confirm & reschedule requests
 │   │   │   │   ├── MessageController.php              # Real-time direct company messaging
-│   │   │   │   └── StudentDashboardController.php     # Profile, recommendations & resume management
+│   │   │   │   └── StudentDashboardController.php     # Profile, readiness, recommendations & resume
 │   │   │   ├── AuthController.php                     # Authentication & registration (Web)
 │   │   │   └── NotificationController.php             # In-app notifications handler (Web)
 │   │   └── Middleware/
 │   │       └── RoleMiddleware.php                     # Role-based route guard
 │   ├── Models/
 │   │   ├── Application.php                            # Student job applications
-│   │   ├── CompanyProfile.php                         # Company details & verification
+│   │   ├── Bookmark.php                               # Student saved job bookmarks
+│   │   ├── CompanyProfile.php                         # Company details, logo, cover & verification
 │   │   ├── Conversation.php                           # Direct messaging threads & participant guards
-│   │   ├── InternshipPost.php                         # Job vacancies
+│   │   ├── InternshipPost.php                         # Job & internship vacancies (table: job_posts)
+│   │   ├── Interview.php                              # Scheduled interviews & student responses
 │   │   ├── Message.php                                # Chat messages
 │   │   ├── StudentProfile.php                         # Student details & resume paths
 │   │   └── User.php                                   # Base user accounts, avatars, initials & roles
@@ -756,7 +830,7 @@ InternshipMS/
 │   ├── channels.php                                   # WebSocket private channel authorization rules
 │   └── web.php                                        # Web routes & storage streaming fallback
 └── tests/
-    └── Feature/                                       # 49 automated feature tests (210 assertions)
+    └── Feature/                                       # 105 automated tests (561 assertions)
 ```
 
 ---
@@ -785,7 +859,7 @@ npm run build      # (or 'npm run dev' for development)
 
 | Task / Problem | Command / Solution |
 | :--- | :--- |
-| **Run Automated Tests** | `php artisan test` *(73 tests, 325 assertions)* |
+| **Run Automated Tests** | `php artisan test` *(105 tests, 561 assertions)* |
 | **Clear All Application Caches** | `php artisan optimize:clear` |
 | **Recompile Assets for Production** | `npm run build` |
 | **Fix Broken Resumes or Logos** | `php artisan storage:link` *(Also supported via `/storage/{path}` route)* |
