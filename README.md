@@ -732,7 +732,10 @@ php artisan test
 
 ## 🔑 Default Login Credentials & Access
 
-### 1. System Administrator (Pre-Seeded)
+> [!WARNING]
+> **Development & Local Testing Only:** The seeded credentials below are intended strictly for local development and evaluation. Immediately change the default administrator email and password in `/admin/profile` before deploying to any staging or production server.
+
+### 1. System Administrator (Pre-Seeded, Web Portal Only)
 - **Login URL:** `http://127.0.0.1:8000/login`
 - **Email:** `admin@gmail.com`
 - **Password:** `1234567890`
